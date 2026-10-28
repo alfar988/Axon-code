@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<!--
+  TEMPLATE game-3d: a complete, tested Three.js (r128) arena game: "collect gems, avoid chasers".
+  Engine (do not rewrite): renderer + resize + pixel-ratio cap, follow camera, keyboard + touch joystick, fixed-timestep update,
+  pooled particles, state machine, HUD, best score, difficulty ramp, shared geometries/materials (no per-frame allocation).
+  Adapt it by editing the places marked EDIT: CONFIG, buildWorld(), makePlayer(), makeGem(), makeChaser(). Keep it ONE file.
+  Only r128 APIs are used on purpose (no CapsuleGeometry, no THREE.OrbitControls).
+-->
+<html lang="__LANG__">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0e141b">
+<title>__TITLE__</title>
+<style>
+  :root { --bg: #0e141b; --panel: #161e28; --line: #263243; --ink: #eef2f6; --muted: #9aa7b6; --accent: __ACCENT__; --accent-ink: #07130e; --danger: #ff6b6b; --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); overflow: hidden; overscroll-behavior: none; }
+  body { height: 100vh; height: 100dvh; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent; }
+  #view { position: fixed; inset: 0; }
+  #view canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #hud { position: fixed; top: max(env(safe-area-inset-top), 8px); left: 10px; right: 10px; display: flex; gap: 14px; align-items: center; pointer-events: none; z-index: 2; }
+  .stat { display: flex; flex-direction: column; line-height: 1.1; min-width: 54px; }
+  .stat .k { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .stat .v { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,.5); }
+  .grow { flex: 1; }
+  .pips { display: flex; gap: 5px; align-items: center; min-height: 24px; }
+  .pip { width: 13px; height: 13px; border-radius: 50%; background: var(--danger); }
+  .pip.off { background: transparent; box-shadow: inset 0 0 0 2px var(--line); }
+  .icon { pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: rgba(22,30,40,.85); color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+  .icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .icon:hover { border-color: var(--accent); }
+  .icon:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  #stick { position: fixed; width: 110px; height: 110px; margin: -55px 0 0 -55px; border: 2px solid rgba(238,242,246,.35); border-radius: 50%; pointer-events: none; z-index: 2; display: none; }
+  #stick i { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; margin: -22px 0 0 -22px; border-radius: 50%; background: rgba(238,242,246,.8); }
+  #overlay { position: fixed; inset: 0; display: grid; place-items: center; background: rgba(8,11,15,.7); z-index: 3; padding: 16px; }
+  #overlay[hidden] { display: none; }
+  .card { width: min(92vw, 380px); background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 24px 22px; text-align: center; display: grid; gap: 12px; }
+  .card h1 { font-size: clamp(24px, 6vw, 32px); letter-spacing: -.01em; }
+  .card p { color: var(--muted); font-size: 15px; line-height: 1.5; }
+  .card .big { font-size: 36px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .btn { min-height: 48px; padding: 0 22px; border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font: 700 16px var(--font); cursor: pointer; touch-action: manipulation; }
+  .btn:hover { filter: brightness(1.08); }
+  #fail { position: fixed; inset: 0; display: none; place-items: center; padding: 24px; text-align: center; color: var(--muted); z-index: 4; background: var(--bg); }
+</style>
+</head>
+<body>
+<main id="view"></main>
+<div id="stick"><i></i></div>
+<header id="hud">
+  <div class="stat"><span class="k">Score</span><span class="v" id="hud-score">0</span></div>
+  <div class="stat"><span class="k">Best</span><span class="v" id="hud-best">0</span></div>
+  <div class="stat"><span class="k">Lives</span><span class="pips" id="hud-lives" role="img" aria-label="lives left"></span></div>
+  <span class="grow"></span>
+  <button class="icon" id="btn-pause" type="button" aria-label="Pause"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg></button>
+</header>
+<div id="overlay" role="dialog" aria-modal="true" aria-labelledby="ov-title">
+  <div class="card">
+    <h1 id="ov-title">__TITLE__</h1>
+    <div class="big" id="ov-big" hidden></div>
+    <p id="ov-text">Collect the gems. Do not let the red chasers touch you.</p>
+    <p>Move with WASD / arrow keys, or drag anywhere on the screen.</p>
+    <button class="btn" id="ov-btn" type="button">Play</button>
+  </div>
+</div>
+<div id="fail">3D graphics (WebGL) are not available in this browser.</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+/* =============================== EDIT: CONFIG =============================== */
+const CONFIG = {
+  arena: 22,                                                    // radius of the playable area
+  player: { speed: 9, radius: 0.7, lives: 3, invuln: 1.2 },
+  gem: { value: 10, max: 6, every: 1.1, radius: 0.6 },
+  chaser: { speed: 2.6, radius: 0.8, max: 7, every: 3.2 },
+  rampSeconds: 35,
+  colors: { sky: 0x0e141b, ground: 0x18222d, grid: 0x2b3a4c, player: 0xeef2f6, gem: parseInt("__ACCENT__".replace("#", ""), 16) || 0x35c48f, chaser: 0xff6b6b }
+};
+
+/* ================================ UTILITIES ================================= */
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+const rand = (a, b) => a + Math.random() * (b - a);
+const $ = (id) => document.getElementById(id);
+const Store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } }
+};
+
+/* ================================ RENDERER ================================== */
+let renderer = null;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+} catch (e) { renderer = null; }
+if (!renderer) { $("fail").style.display = "grid"; throw new Error("WebGL is not available"); }
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));        // cap: phones with 3x screens would be too slow
+renderer.setClearColor(CONFIG.colors.sky);
+$("view").appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(CONFIG.colors.sky, 28, 62);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.1, 120);
+function resize() {
+  const w = window.innerWidth, h = window.innerHeight;
+  renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", resize);
+
+/* ============================ EDIT: WORLD AND ACTORS ======================== */
+// Shared geometries and materials: create once, reuse for every instance (no per-frame allocation, nothing to dispose).
+const GEO = {
+  gem: new THREE.OctahedronGeometry(CONFIG.gem.radius, 0),
+  chaser: new THREE.SphereGeometry(CONFIG.chaser.radius, 16, 12),
+  body: new THREE.CylinderGeometry(0.55, 0.65, 1.2, 14),
+  head: new THREE.SphereGeometry(0.5, 14, 10),
+  spark: new THREE.BoxGeometry(0.16, 0.16, 0.16)
+};
+const MAT = {
+  player: new THREE.MeshStandardMaterial({ color: CONFIG.colors.player, roughness: 0.5 }),
+  gem: new THREE.MeshStandardMaterial({ color: CONFIG.colors.gem, emissive: CONFIG.colors.gem, emissiveIntensity: 0.55, roughness: 0.3 }),
+  chaser: new THREE.MeshStandardMaterial({ color: CONFIG.colors.chaser, emissive: CONFIG.colors.chaser, emissiveIntensity: 0.25, roughness: 0.6 }),
+  spark: new THREE.MeshBasicMaterial({ color: CONFIG.colors.gem })
+};
+function buildWorld() {
+  scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x1a2230, 0.9));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.8); sun.position.set(8, 16, 6); scene.add(sun);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(CONFIG.arena + 6, 48), new THREE.MeshStandardMaterial({ color: CONFIG.colors.ground, roughness: 1 }));
+  ground.rotation.x = -Math.PI / 2; scene.add(ground);
+  const grid = new THREE.GridHelper((CONFIG.arena + 6) * 2, 22, CONFIG.colors.grid, CONFIG.colors.grid); grid.position.y = 0.02; scene.add(grid);
+  const ring = new THREE.Mesh(new THREE.RingGeometry(CONFIG.arena, CONFIG.arena + 0.35, 64), new THREE.MeshBasicMaterial({ color: CONFIG.colors.gem }));
+  ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; scene.add(ring);
+}
+function makePlayer() {
+  const g = new THREE.Group();
+  const body = new THREE.Mesh(GEO.body, MAT.player); body.position.y = 0.6; g.add(body);
+  const head = new THREE.Mesh(GEO.head, MAT.player); head.position.y = 1.5; g.add(head);
+  return g;
+}
+function makeGem() { const m = new THREE.Mesh(GEO.gem, MAT.gem); m.position.y = 1; return m; }
+function makeChaser() { const m = new THREE.Mesh(GEO.chaser, MAT.chaser); m.position.y = CONFIG.chaser.radius; return m; }
+
+/* ================================== STATE =================================== */
+const G = { state: "menu", t: 0, score: 0, best: Store.get("best", 0), lives: 0, diff: 1, gemT: 0, chaserT: 0, shake: 0, hitstop: 0, gems: [], chasers: [], sparks: [] };
+buildWorld();
+const player = makePlayer(); scene.add(player);
+const spark_pool = [];
+for (let i = 0; i < 40; i++) { const s = new THREE.Mesh(GEO.spark, MAT.spark); s.visible = false; scene.add(s); spark_pool.push({ mesh: s, vx: 0, vy: 0, vz: 0, life: 0 }); }
+const camTarget = { x: 0, z: 0 };
+
+function resetActors() {
+  G.gems.forEach((o) => scene.remove(o.mesh)); G.chasers.forEach((o) => scene.remove(o.mesh));
+  G.gems = []; G.chasers = []; player.position.set(0, 0, 0); camTarget.x = 0; camTarget.z = 0;
+}
+function startGame() {
+  resetActors();
+  Object.assign(G, { state: "play", t: 0, score: 0, lives: CONFIG.player.lives, diff: 1, gemT: 0, chaserT: 0, shake: 0, hitstop: 0 });
+  player.userData.inv = 0;
+  hideOverlay(); syncHud(true);
+}
+function endGame() {
+  G.state = "over";
+  const record = G.score > G.best; if (record) { G.best = G.score; Store.set("best", G.best); }
+  showOverlay("Game over", record ? "New best score!" : "Best: " + G.best, "Play again", G.score); syncHud(true);
+}
+function togglePause() {
+  if (G.state === "play") { G.state = "pause"; showOverlay("Paused", "Take a breath.", "Resume"); }
+  else if (G.state === "pause") { G.state = "play"; hideOverlay(); }
+}
+function primaryAction() { if (G.state === "pause") togglePause(); else startGame(); }
+
+function spawnGem() {
+  const a = rand(0, Math.PI * 2), r = Math.sqrt(Math.random()) * (CONFIG.arena - 2), m = makeGem();
+  m.position.set(Math.cos(a) * r, 1, Math.sin(a) * r); scene.add(m); G.gems.push({ mesh: m, age: Math.random() * 6 });
+}
+function spawnChaser() {
+  const a = rand(0, Math.PI * 2), m = makeChaser();
+  m.position.set(Math.cos(a) * (CONFIG.arena - 1), CONFIG.chaser.radius, Math.sin(a) * (CONFIG.arena - 1)); scene.add(m); G.chasers.push({ mesh: m });
+}
+function burst(x, y, z, n) {
+  for (let i = 0; i < n; i++) {
+    const p = spark_pool.find((q) => q.life <= 0); if (!p) return;
+    p.mesh.position.set(x, y, z); p.mesh.visible = true; p.life = rand(0.35, 0.7);
+    p.vx = rand(-4, 4); p.vy = rand(2, 6); p.vz = rand(-4, 4);
+  }
+}
+function collectNearest() { const g = G.gems[0]; if (g) { player.position.x = g.mesh.position.x; player.position.z = g.mesh.position.z; } }
+
+/* ================================== INPUT =================================== */
+const Input = { keys: new Set(), stick: { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 } };
+function moveVector() {
+  const k = Input.keys;
+  let x = (k.has("ArrowRight") || k.has("d") || k.has("D") ? 1 : 0) - (k.has("ArrowLeft") || k.has("a") || k.has("A") ? 1 : 0);
+  let z = (k.has("ArrowDown") || k.has("s") || k.has("S") ? 1 : 0) - (k.has("ArrowUp") || k.has("w") || k.has("W") ? 1 : 0);
+  if (Input.stick.active) { x = Input.stick.x; z = Input.stick.y; }
+  const m = Math.hypot(x, z); return m > 1 ? { x: x / m, z: z / m } : { x, z };
+}
+const stickEl = $("stick");
+const STICK_R = 55;
+window.addEventListener("pointerdown", (e) => {
+  if (G.state !== "play" || e.target.closest && e.target.closest("button")) return;
+  if (Input.stick.active) return;
+  Input.stick = { active: true, id: e.pointerId, ox: e.clientX, oy: e.clientY, x: 0, y: 0 };
+  stickEl.style.display = "block"; stickEl.style.left = e.clientX + "px"; stickEl.style.top = e.clientY + "px";
+});
+window.addEventListener("pointermove", (e) => {
+  const s = Input.stick; if (!s.active || e.pointerId !== s.id) return;
+  s.x = clamp((e.clientX - s.ox) / STICK_R, -1, 1); s.y = clamp((e.clientY - s.oy) / STICK_R, -1, 1);
+  const knob = stickEl.firstElementChild; if (knob) knob.style.transform = "translate(" + s.x * 40 + "px," + s.y * 40 + "px)";
+});
+function releaseStick(e) {
+  if (Input.stick.active && e.pointerId === Input.stick.id) { Input.stick = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 }; stickEl.style.display = "none"; }
+}
+window.addEventListener("pointerup", releaseStick);
+window.addEventListener("pointercancel", releaseStick);
+window.addEventListener("keydown", (e) => {
+  if (e.key.startsWith("Arrow") || e.key === " ") e.preventDefault();
+  if (e.repeat) return;
+  Input.keys.add(e.key);
+  if ((e.key === "Escape" || e.key === "p" || e.key === "P") && (G.state === "play" || G.state === "pause")) togglePause();
+  else if ((e.key === "Enter" || e.key === " ") && G.state !== "play") primaryAction();
+});
+window.addEventListener("keyup", (e) => Input.keys.delete(e.key));
+window.addEventListener("blur", () => { Input.keys.clear(); if (G.state === "play") togglePause(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && G.state === "play") togglePause(); });
+
+/* ================================== UPDATE ================================== */
+function update(dt) {
+  for (const p of spark_pool) {                                  // particles keep moving even in menus
+    if (p.life <= 0) continue; p.life -= dt;
+    p.mesh.position.x += p.vx * dt; p.mesh.position.y += p.vy * dt; p.mesh.position.z += p.vz * dt; p.vy -= 12 * dt;
+    if (p.life <= 0 || p.mesh.position.y < 0) { p.life = 0; p.mesh.visible = false; }
+  }
+  if (G.state !== "play") return;
+  if (G.hitstop > 0) { G.hitstop -= dt; return; }
+  G.t += dt; G.diff = 1 + G.t / CONFIG.rampSeconds; G.shake = Math.max(0, G.shake - dt * 3);
+  const inv = player.userData.inv = Math.max(0, (player.userData.inv || 0) - dt);
+
+  const v = moveVector();
+  player.position.x += v.x * CONFIG.player.speed * dt; player.position.z += v.z * CONFIG.player.speed * dt;
+  const d = Math.hypot(player.position.x, player.position.z), lim = CONFIG.arena - 0.8;
+  if (d > lim) { player.position.x *= lim / d; player.position.z *= lim / d; }
+  if (v.x || v.z) player.rotation.y = Math.atan2(v.x, v.z);
+  player.visible = inv <= 0 || Math.floor(G.t * 16) % 2 === 0;
+
+  G.gemT -= dt; G.chaserT -= dt;
+  if (G.gemT <= 0 && G.gems.length < CONFIG.gem.max) { spawnGem(); G.gemT = CONFIG.gem.every; }
+  if (G.chaserT <= 0 && G.chasers.length < CONFIG.chaser.max) { spawnChaser(); G.chaserT = CONFIG.chaser.every / (0.6 + G.diff * 0.4); }
+
+  for (let i = G.gems.length - 1; i >= 0; i--) {
+    const g = G.gems[i]; g.age += dt; g.mesh.rotation.y += dt * 2.2; g.mesh.position.y = 1 + Math.sin(g.age * 3) * 0.18;
+    const dx = g.mesh.position.x - player.position.x, dz = g.mesh.position.z - player.position.z, rr = CONFIG.gem.radius + CONFIG.player.radius;
+    if (dx * dx + dz * dz < rr * rr) {
+      G.score += CONFIG.gem.value; burst(g.mesh.position.x, 1, g.mesh.position.z, 12); scene.remove(g.mesh); G.gems.splice(i, 1); syncHud();
+    }
+  }
+  for (let i = G.chasers.length - 1; i >= 0; i--) {
+    const c = G.chasers[i], dx = player.position.x - c.mesh.position.x, dz = player.position.z - c.mesh.position.z, len = Math.hypot(dx, dz) || 1;
+    const sp = CONFIG.chaser.speed * (0.8 + G.diff * 0.25);
+    c.mesh.position.x += dx / len * sp * dt; c.mesh.position.z += dz / len * sp * dt; c.mesh.rotation.y += dt * 3;
+    const rr = CONFIG.chaser.radius + CONFIG.player.radius * 0.85;
+    if (inv <= 0 && dx * dx + dz * dz < rr * rr) {
+      G.lives--; player.userData.inv = CONFIG.player.invuln; G.shake = 1; G.hitstop = 0.07;
+      burst(player.position.x, 1, player.position.z, 18); scene.remove(c.mesh); G.chasers.splice(i, 1); syncHud();
+      if (G.lives <= 0) { endGame(); return; }
+    }
+  }
+}
+
+function render() {
+  camTarget.x = lerp(camTarget.x, player.position.x, 0.08); camTarget.z = lerp(camTarget.z, player.position.z, 0.08);
+  const sx = G.shake > 0 ? rand(-G.shake, G.shake) * 0.4 : 0, sz = G.shake > 0 ? rand(-G.shake, G.shake) * 0.4 : 0;
+  camera.position.set(camTarget.x + sx, 11, camTarget.z + 12 + sz);
+  camera.lookAt(camTarget.x, 0.5, camTarget.z - 1);
+  renderer.render(scene, camera);
+}
+
+/* ============================== HUD AND OVERLAY ============================= */
+const hud = { score: $("hud-score"), best: $("hud-best"), lives: $("hud-lives") }, shown = { score: -1, best: -1, lives: -1 };
+function syncHud(force) {
+  if (force || shown.score !== G.score) { hud.score.textContent = G.score; shown.score = G.score; }
+  if (force || shown.best !== G.best) { hud.best.textContent = G.best; shown.best = G.best; }
+  if (force || shown.lives !== G.lives) {
+    hud.lives.textContent = "";
+    for (let i = 0; i < CONFIG.player.lives; i++) { const d = document.createElement("span"); d.className = "pip" + (i < G.lives ? "" : " off"); hud.lives.appendChild(d); }
+    shown.lives = G.lives;
+  }
+}
+function showOverlay(title, text, button, big) {
+  $("ov-title").textContent = title; $("ov-text").textContent = text; $("ov-btn").textContent = button;
+  const b = $("ov-big"); b.hidden = big === undefined; if (big !== undefined) b.textContent = big;
+  $("overlay").hidden = false; $("ov-btn").focus();
+}
+function hideOverlay() { $("overlay").hidden = true; }
+$("ov-btn").addEventListener("click", primaryAction);
+$("btn-pause").addEventListener("click", togglePause);
+
+/* ================================ MAIN LOOP ================================= */
+const STEP = 1 / 60;
+let last = 0, acc = 0;
+function frame(ts) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, ((ts - last) / 1000) || 0); last = ts; acc += dt;
+  for (let n = 0; acc >= STEP && n < 5; n++) { update(STEP); acc -= STEP; }
+  render();
+}
+resize(); syncHud(true); showOverlay("__TITLE__", "Collect the gems. Do not let the red chasers touch you.", "Play");
+requestAnimationFrame(frame);
+window.game = { G, CONFIG, player, update, render, startGame, collectNearest, scene };   // handy for debugging and tests
+</script>
+</body>
+</html>

@@ -1,0 +1,317 @@
+{
+ "version": 2,
+ "note": "Skill router metadata. kind=core: loaded in full when it matches; reference: loaded in parts (use_skill part=N). match = [regex, weight]; a skill is active when the summed weight reaches min.",
+ "skills": {
+  "planning-skill": {
+   "desc": "Plan a project before building: goal, testable features, architecture, small ordered steps, risks, verification.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(plan|planning|roadmap|design a system|architecture|breakdown|milestone|strategy|rencana|rencanakan|rancang|susun|tahapan|strategi|arsitektur)\\b",
+     3
+    ],
+    [
+     "\\b(big project|complete system|full.?stack|end.to.end|proyek besar|sistem lengkap)\\b",
+     2
+    ]
+   ],
+   "deny": [],
+   "min": 3,
+   "pri": 0
+  },
+  "code-quality-skill": {
+   "desc": "Write correct, readable, safe code: structure, error handling, validation, security, tests, self-review checklist.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(refactor|clean ?up|code quality|best practice|review (my )?code|tests?|unit ?test|secure|security|rapikan|kode bersih|uji|keamanan)\\b",
+     3
+    ],
+    [
+     "\\b(write|create|build|make|buat|bikin|tulis)\\b.{0,40}\\b(script|program|function|class|module|library|app|aplikasi|fungsi)\\b",
+     3
+    ]
+   ],
+   "deny": [],
+   "min": 3,
+   "pri": 0
+  },
+  "frontend-skill": {
+   "desc": "Plain HTML/CSS/JS apps: state/render pattern, forms, fetch, storage, dialogs, accessibility.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(javascript|js|html|dom|react|vue|svelte|vanilla|pwa|frontend|front-end|web app|aplikasi web)\\b",
+     2
+    ],
+    [
+     "\\b(calculator|kalkulator|todo|to-do|quiz|kuis|form|formulir|localstorage|stopwatch|timer|converter|konverter|tracker|dashboard|notes? app|catatan)\\b",
+     3
+    ]
+   ],
+   "deny": [],
+   "min": 3,
+   "pri": 0
+  },
+  "design-skill": {
+   "desc": "UI/GUI/CSS design: direction, tokens, type, spacing, layout, components, dark mode, review loop.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(ui|ux|gui|css|design|designs|styling|style|look|layout|theme|mockup|interface|desain|tampilan|antarmuka|tema)\\b",
+     4
+    ],
+    [
+     "\\b(website|web ?site|landing|portfolio|portofolio|dashboard|homepage|situs|web page|halaman web)\\b",
+     3
+    ],
+    [
+     "\\b(color|colour|palette|font|typography|responsive|responsif|dark mode|animation|animasi|warna|tipografi)\\b",
+     3
+    ]
+   ],
+   "deny": [],
+   "min": 3,
+   "pri": 0
+  },
+  "game-skill": {
+   "desc": "Browser games (2D canvas, 3D Three.js) as one HTML file: start from a tested template, re-theme, polish, fix.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(game|games|gim|permainan|shooter|fps|rpg|platformer|puzzle|racing|survival|tower defense|arcade|snake|tetris|flappy|pong|breakout|runner)\\b",
+     5
+    ],
+    [
+     "\\b(three\\.?js|phaser|webgl|canvas)\\b",
+     2
+    ],
+    [
+     "\\b(sprite|enemy|enemies|musuh|level|score|skor|player|boss|nyawa|lives|power.?up)\\b",
+     1.5
+    ]
+   ],
+   "deny": [
+    "roblox|luau|unity|godot|unreal|minecraft"
+   ],
+   "min": 3,
+   "pri": 0
+  },
+  "backend-skill": {
+   "desc": "Backends and APIs: stdlib/Flask/FastAPI/Express, SQLite, validation, auth, run and verify every route.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(backend|api|rest|graphql|endpoint|database|sqlite|postgres|mysql|mongodb|redis|crud|orm|server side)\\b",
+     4
+    ],
+    [
+     "\\b(flask|fastapi|django|express|node\\.?js|websocket|webhook|jwt|login|auth|authentication|autentikasi|server)\\b",
+     3
+    ],
+    [
+     "\\b(session|cron|queue|microservice|migration|migrasi)\\b",
+     1.5
+    ]
+   ],
+   "deny": [
+    "roblox|luau|serverscriptservice"
+   ],
+   "min": 3,
+   "pri": 0
+  },
+  "python-skill": {
+   "desc": "Python apps, CLIs, bots (Telegram/Discord) and scrapers: structure, resilient HTTP, tests.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(python|bot|telegram|discord|scraper|scraping|crawler|cli|pip|venv|automation|otomasi)\\b",
+     4
+    ],
+    [
+     "\\b(script|skrip|argparse|pandas|numpy)\\b",
+     2
+    ]
+   ],
+   "deny": [],
+   "min": 3,
+   "pri": 0
+  },
+  "debug-skill": {
+   "desc": "Fix errors on your own: reproduce, read, locate, fix the root cause, re-run; runbook of common errors.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(error|bug|traceback|exception|crash|crashed|failed|failing|undefined|not defined|syntax|stack ?trace|gagal|rusak)\\b",
+     4
+    ],
+    [
+     "\\b(doesn'?t work|not working|won'?t (run|start|load)|broken|blank|stuck|tidak jalan|ga jalan|gak jalan|nggak jalan|tidak bisa|macet|layar putih)\\b",
+     3
+    ],
+    [
+     "\\b(fix|repair|debug|perbaiki|benerin|betulkan)\\b",
+     2
+    ]
+   ],
+   "deny": [],
+   "min": 3,
+   "pri": 0
+  },
+  "environment-skill": {
+   "desc": "Set up and repair the environment: Termux/Linux/macOS packages, venv, Node, git, ports, storage, previews.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(install|installation|setup|set up|pkg|apt|brew|pip|npm|venv|termux|port|git|github|clone|push|commit|permission|chmod|sudo|pasang|instal)\\b",
+     3
+    ],
+    [
+     "\\b(command not found|not installed|no such file|module not found|cannot find module|externally.managed)\\b",
+     3
+    ]
+   ],
+   "deny": [],
+   "min": 3,
+   "pri": 0
+  },
+  "android-skill": {
+   "desc": "Android apps: toolchain check, realistic options, Gradle/Kotlin builds, APK.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(apk|android|gradle|kotlin|aab|adb)\\b",
+     5
+    ]
+   ],
+   "deny": [],
+   "min": 3,
+   "pri": 0
+  },
+  "roblox-skill": {
+   "desc": "Roblox (Luau): complete scripts, Explorer locations, server authority, DataStore, GUI.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(roblox|luau|serverscriptservice|starterplayer|remoteevent|datastore|roblox studio)\\b",
+     6
+    ]
+   ],
+   "deny": [],
+   "min": 3,
+   "pri": 0
+  },
+  "skill-complex-thinking": {
+   "desc": "Complex reasoning: break hard problems down, weigh trade-offs, logic, algorithms, verify reasoning.",
+   "kind": "reference",
+   "match": [
+    [
+     "\\b(algorithm|algoritma|optimi[sz]e|optimasi|complex|kompleks|logic|logika|trade-?off|analy[sz]e|analisis|difficult|rumit|sulit|paradox|dilemma)\\b",
+     3
+    ],
+    [
+     "\\b(compare|bandingkan|why|kenapa|mengapa|strategy|strategi|pathfinding|state machine|concurrency|race condition|math|matematika|physics|fisika)\\b",
+     2
+    ],
+    [
+     "\\b(system design|architecture|arsitektur|scalab\\w+|skalabilitas)\\b",
+     2
+    ]
+   ],
+   "deny": [],
+   "min": 4,
+   "pri": 0
+  },
+  "skill-deep-research-fact-checking": {
+   "desc": "Deep research and fact checking: sources, cross-verification, latest versions, evidence.",
+   "kind": "reference",
+   "match": [
+    [
+     "\\b(research|riset|find out|look up|investigate|investigasi|fact.?check|verify|verifikasi|is it true|apakah benar|hoax|cek fakta)\\b",
+     4
+    ],
+    [
+     "\\b(sources?|sumber|references?|referensi|latest|terbaru|newest|release|news|berita|study|journal|official docs?|dokumentasi resmi|compare|bandingkan)\\b",
+     2
+    ]
+   ],
+   "deny": [],
+   "min": 4,
+   "pri": 0
+  },
+  "skill-game-development-implementation": {
+   "desc": "In-depth game development: systems, physics, enemy AI, level design, polish.",
+   "kind": "reference",
+   "match": [
+    [
+     "\\b(game|games|gim|permainan|shooter|fps|rpg|platformer|puzzle|racing|survival|tower defense|arcade)\\b",
+     4
+    ],
+    [
+     "\\b(physics|fisika|enemy ai|ai musuh|pathfinding|level design|procedural|inventory|crafting|multiplayer|boss|skill tree)\\b",
+     3
+    ],
+    [
+     "\\b(three\\.?js|phaser|webgl|3d)\\b",
+     1
+    ]
+   ],
+   "deny": [
+    "roblox|luau|unity|godot|unreal|minecraft"
+   ],
+   "min": 5,
+   "pri": 0
+  },
+  "skill-memory-knowledge-management": {
+   "desc": "Memory and knowledge management: notes, long contexts, project documentation, resuming work.",
+   "kind": "reference",
+   "match": [
+    [
+     "\\b(remember|ingat|ingatkan|memory|memori|notes?|catatan|catat|knowledge|knowledge base|basis pengetahuan|history|riwayat|handoff|resume|lanjutkan sesi)\\b",
+     4
+    ],
+    [
+     "\\b(project documentation|dokumentasi proyek|summari[sz]e the project|rangkum proyek|long context|konteks panjang)\\b",
+     2
+    ]
+   ],
+   "deny": [],
+   "min": 4,
+   "pri": 0
+  },
+  "skill-planning": {
+   "desc": "In-depth planning: decomposition, prioritization, estimation and risk management for large projects.",
+   "kind": "reference",
+   "match": [
+    [
+     "\\b(roadmap|milestone|big project|proyek besar|complete system|sistem lengkap|full.?stack|end.to.end|work breakdown|prioriti[sz]\\w+|prioritas|estimat\\w+|estimasi|backlog)\\b",
+     4
+    ],
+    [
+     "\\b(plan|planning|rencana|rencanakan|rancang)\\b",
+     2
+    ]
+   ],
+   "deny": [],
+   "min": 5,
+   "pri": 0
+  },
+  "skill-ui-css-color": {
+   "desc": "In-depth UI, CSS and color systems: palettes, contrast, design tokens, light and dark themes.",
+   "kind": "reference",
+   "match": [
+    [
+     "\\b(css|color|colour|palette|palet|theme|tema|dark mode|gradient|contrast|kontras|typography|tipografi|warna)\\b",
+     4
+    ],
+    [
+     "\\b(ui|gui|design|desain|look|website|landing|portfolio|portofolio|dashboard)\\b",
+     2
+    ]
+   ],
+   "deny": [],
+   "min": 4,
+   "pri": 0
+  }
+ }
+}

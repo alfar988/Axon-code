@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<!--
+  TEMPLATE web-landing: a responsive, accessible one-page site (hero, features, steps, pricing, FAQ, contact form),
+  light and dark themes, design tokens, no external dependencies, no images required.
+  Adapt it by editing the places marked EDIT: the CSS tokens in :root, the copy, the icons and the section list.
+  Keep the structure: tokens -> base -> layout -> components -> sections. Replace ALL sample copy with real content.
+-->
+<html lang="__LANG__">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>__TITLE__: __TAGLINE__</title>
+<meta name="description" content="__DESCRIPTION__">
+<meta name="theme-color" content="#f6f4ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14171a" media="(prefers-color-scheme: dark)">
+<style>
+  /* ============================ EDIT: DESIGN TOKENS ============================ */
+  :root {
+    --bg: #f6f4ef; --surface: #ffffff; --ink: #1c2024; --muted: #565d66; --line: #dcd8cf;
+    --accent: __ACCENT__; --accent-fg: var(--accent); --accent-ink: #ffffff; --accent-soft: #eef5f1;
+    --radius: 14px; --shadow: 0 1px 2px rgba(20,24,28,.06), 0 8px 24px rgba(20,24,28,.06);
+    --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 72px;
+    --font: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --measure: 66ch; --maxw: 1080px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171a; --surface: #1b1f23; --ink: #eef0f2; --muted: #a2abb5; --line: #2c333a; --accent-soft: #1d2b25; --accent-fg: color-mix(in srgb, var(--accent) 45%, #ffffff); --shadow: 0 1px 2px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"] { --bg: #14171a; --surface: #1b1f23; --ink: #eef0f2; --muted: #a2abb5; --line: #2c333a; --accent-soft: #1d2b25; --accent-fg: color-mix(in srgb, var(--accent) 45%, #ffffff); --shadow: 0 1px 2px rgba(0,0,0,.4); }
+
+  /* ================================== BASE ================================== */
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  @media (prefers-reduced-motion: no-preference) { html { scroll-behavior: smooth; } }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); font-size: 1rem; line-height: 1.6; }
+  h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; margin: 0 0 var(--space-3); }
+  h1 { font-size: clamp(2.1rem, 5.6vw, 3.6rem); }
+  h2 { font-size: clamp(1.6rem, 3.6vw, 2.25rem); }
+  h3 { font-size: 1.15rem; letter-spacing: -.01em; }
+  p { margin: 0 0 var(--space-4); max-width: var(--measure); }
+  a { color: inherit; text-underline-offset: 3px; }
+  img, svg { max-width: 100%; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 4px; }
+  .skip { position: absolute; left: -999px; top: 8px; background: var(--surface); padding: var(--space-3) var(--space-4); border-radius: 8px; z-index: 10; }
+  .skip:focus { left: 8px; }
+  .wrap { width: min(100% - 2 * var(--space-5), var(--maxw)); margin-inline: auto; }
+  section { padding-block: clamp(var(--space-7), 9vw, var(--space-8)); }
+  .eyebrow { font-size: .8rem; letter-spacing: .12em; text-transform: uppercase; color: var(--accent-fg); font-weight: 700; margin-bottom: var(--space-3); }
+  .lead { font-size: 1.15rem; color: var(--muted); }
+
+  /* ================================ COMPONENTS ============================== */
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2); min-height: 46px; padding: 0 var(--space-5); border-radius: 999px;
+         border: 1px solid transparent; background: var(--accent); color: var(--accent-ink); font: 600 1rem var(--font); text-decoration: none; cursor: pointer;
+         transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease; }
+  .btn:hover { box-shadow: var(--shadow); transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn.ghost:hover { border-color: var(--accent); }
+  .btn[disabled] { opacity: .6; cursor: not-allowed; transform: none; }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:hover { transform: none; } }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: var(--space-5); }
+  .icon { width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent-fg); display: grid; place-items: center; margin-bottom: var(--space-4); }
+  .icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); }
+
+  /* ================================= HEADER ================================= */
+  header.site { position: sticky; top: 0; z-index: 5; background: var(--bg); background: color-mix(in srgb, var(--bg) 92%, transparent); border-bottom: 1px solid var(--line); backdrop-filter: blur(8px); }
+  .bar { display: flex; align-items: center; gap: var(--space-4); min-height: 64px; }
+  .brand { font-weight: 800; letter-spacing: -.02em; font-size: 1.15rem; text-decoration: none; margin-right: auto; }
+  nav ul { display: flex; gap: var(--space-5); list-style: none; margin: 0; padding: 0; }
+  nav a { text-decoration: none; color: var(--muted); font-weight: 500; padding: var(--space-2) 0; }
+  nav a:hover { color: var(--ink); }
+  .iconbtn { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink); display: grid; place-items: center; cursor: pointer; }
+  .iconbtn:hover { border-color: var(--accent); }
+  .iconbtn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #nav-toggle { display: none; }
+  @media (max-width: 760px) {
+    #nav-toggle { display: grid; }
+    nav { position: absolute; left: 0; right: 0; top: 100%; background: var(--bg); border-bottom: 1px solid var(--line); display: none; }
+    nav.open { display: block; }
+    nav ul { flex-direction: column; gap: 0; padding: var(--space-3) var(--space-5) var(--space-4); }
+    nav a { display: block; padding: var(--space-3) 0; }
+  }
+
+  /* ================================== HERO ================================== */
+  .hero { padding-top: clamp(var(--space-7), 8vw, 96px); }
+  .hero .cols { display: grid; gap: var(--space-7); align-items: center; grid-template-columns: 1fr; }
+  @media (min-width: 900px) { .hero .cols { grid-template-columns: 1.1fr .9fr; } }
+  .cta { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-5); }
+  .preview { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .preview .top { display: flex; gap: 6px; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--line); }
+  .preview .top i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+  .preview .body { padding: var(--space-5); display: grid; gap: var(--space-3); }
+  .preview .row { height: 12px; border-radius: 6px; background: var(--line); }
+  .preview .row.accent { width: 40%; background: var(--accent); }
+  .preview .row.w80 { width: 80%; } .preview .row.w60 { width: 60%; }
+
+  /* ========================== STEPS, PRICING, FAQ, FORM ====================== */
+  .steps { list-style: none; counter-reset: s; margin: 0; padding: 0; display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+  .steps li { counter-increment: s; }
+  .steps li::before { content: counter(s); display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 700; margin-bottom: var(--space-3); }
+  .plan { display: flex; flex-direction: column; gap: var(--space-3); }
+  .plan.featured { border-color: var(--accent); box-shadow: var(--shadow); }
+  .price { font-size: 2rem; font-weight: 800; letter-spacing: -.02em; }
+  .price small { font-size: 1rem; font-weight: 500; color: var(--muted); }
+  .plan ul { list-style: none; padding: 0; margin: 0 0 var(--space-3); display: grid; gap: var(--space-2); color: var(--muted); }
+  .plan li::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: var(--space-3); }
+  .plan .btn { margin-top: auto; }
+  details { border-bottom: 1px solid var(--line); padding: var(--space-4) 0; }
+  summary { cursor: pointer; font-weight: 600; list-style: none; display: flex; justify-content: space-between; gap: var(--space-4); }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; color: var(--accent-fg); font-size: 1.25rem; line-height: 1; }
+  details[open] summary::after { content: "\2212"; }
+  details p { margin: var(--space-3) 0 0; color: var(--muted); }
+  form { display: grid; gap: var(--space-4); max-width: 560px; }
+  label { font-weight: 600; display: block; margin-bottom: var(--space-2); }
+  input, textarea { width: 100%; font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; min-height: 46px; }
+  input:hover, textarea:hover { border-color: var(--muted); }
+  input:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  [aria-invalid="true"] { border-color: #c4352c; }
+  .error { color: #c4352c; font-size: .9rem; margin: var(--space-2) 0 0; min-height: 1.2em; }
+  .status { min-height: 1.5em; font-weight: 600; color: var(--accent-fg); }
+  footer { border-top: 1px solid var(--line); padding-block: var(--space-6); color: var(--muted); font-size: .9rem; }
+  footer .wrap { display: flex; flex-wrap: wrap; gap: var(--space-4); justify-content: space-between; }
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { opacity: 0; transform: translateY(14px); transition: opacity .5s ease, transform .5s ease; }
+    .reveal.in { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site">
+  <div class="wrap bar">
+    <a class="brand" href="#top">__TITLE__</a>
+    <nav id="site-nav" aria-label="Main">
+      <ul>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#contact">Contact</a></li>
+      </ul>
+    </nav>
+    <button class="iconbtn" id="theme-toggle" type="button" aria-label="Switch color theme">
+      <svg viewBox="0 0 24 24"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3a6.5 6.5 0 0 0 9.8 9.8z"/></svg>
+    </button>
+    <button class="iconbtn" id="nav-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-nav">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" id="top">
+    <div class="wrap cols">
+      <div>
+        <p class="eyebrow">EDIT: short positioning line</p>
+        <h1>__TAGLINE__</h1>
+        <p class="lead">__DESCRIPTION__</p>
+        <div class="cta">
+          <a class="btn" href="#contact">Get started</a>
+          <a class="btn ghost" href="#how">See how it works</a>
+        </div>
+      </div>
+      <div class="preview" aria-hidden="true">
+        <div class="top"><i></i><i></i><i></i></div>
+        <div class="body"><div class="row accent"></div><div class="row"></div><div class="row w80"></div><div class="row w60"></div><div class="row"></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="wrap">
+      <p class="eyebrow">Features</p>
+      <h2>EDIT: what makes this worth using</h2>
+      <div class="grid" style="margin-top: var(--space-5)">
+        <article class="card reveal"><div class="icon"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></div><h3>Fast by default</h3><p>EDIT: one concrete sentence about the benefit, with a number or an example if you have one.</p></article>
+        <article class="card reveal"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.4 8 8 9 4.6-1 8-4 8-9V6z"/></svg></div><h3>Private and secure</h3><p>EDIT: say exactly what you protect and how.</p></article>
+        <article class="card reveal"><div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg></div><h3>Works everywhere</h3><p>EDIT: devices, platforms or integrations that matter to your audience.</p></article>
+        <article class="card reveal"><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></div><h3>Clear insights</h3><p>EDIT: what the user can see or measure that they could not before.</p></article>
+        <article class="card reveal"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M17 11a3 3 0 1 0-1-5.8M21.5 20c-.3-2.2-1.4-3.7-3-4.5"/></svg></div><h3>Built for teams</h3><p>EDIT: collaboration, roles or sharing, only if it is true.</p></article>
+        <article class="card reveal"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 8v4l3 2"/><circle cx="12" cy="12" r="9"/></svg></div><h3>Always available</h3><p>EDIT: support hours, uptime or response time you can really promise.</p></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="how">
+    <div class="wrap">
+      <p class="eyebrow">How it works</p>
+      <h2>Three steps from start to result</h2>
+      <ol class="steps" style="margin-top: var(--space-5)">
+        <li class="reveal"><h3>EDIT: first step</h3><p>Describe the action in one short sentence.</p></li>
+        <li class="reveal"><h3>EDIT: second step</h3><p>Say what the user gets or what happens next.</p></li>
+        <li class="reveal"><h3>EDIT: third step</h3><p>End with the outcome the visitor cares about.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="pricing">
+    <div class="wrap">
+      <p class="eyebrow">Pricing</p>
+      <h2>Simple plans</h2>
+      <div class="grid" style="margin-top: var(--space-5)">
+        <article class="card plan reveal"><h3>Starter</h3><div class="price">$0 <small>/ month</small></div><ul><li>EDIT: limit or feature</li><li>EDIT: limit or feature</li></ul><a class="btn ghost" href="#contact">Choose Starter</a></article>
+        <article class="card plan featured reveal"><h3>Pro</h3><div class="price">$12 <small>/ month</small></div><ul><li>EDIT: everything in Starter</li><li>EDIT: the upgrade that matters</li><li>EDIT: priority support</li></ul><a class="btn" href="#contact">Choose Pro</a></article>
+        <article class="card plan reveal"><h3>Team</h3><div class="price">$39 <small>/ month</small></div><ul><li>EDIT: everything in Pro</li><li>EDIT: team feature</li></ul><a class="btn ghost" href="#contact">Choose Team</a></article>
+      </div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <p class="eyebrow">FAQ</p>
+      <h2>Questions people ask</h2>
+      <div style="margin-top: var(--space-5); max-width: 760px">
+        <details><summary>EDIT: first real question?</summary><p>Answer it directly in two sentences or fewer.</p></details>
+        <details><summary>EDIT: second real question?</summary><p>Be specific: numbers, limits, dates.</p></details>
+        <details><summary>EDIT: third real question?</summary><p>Link to details if the answer is long.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <section id="contact">
+    <div class="wrap">
+      <p class="eyebrow">Contact</p>
+      <h2>Tell us what you need</h2>
+      <form id="contact-form" novalidate>
+        <div><label for="f-name">Name</label><input id="f-name" name="name" type="text" autocomplete="name" required><p class="error" id="e-name" role="alert"></p></div>
+        <div><label for="f-email">Email</label><input id="f-email" name="email" type="email" autocomplete="email" required><p class="error" id="e-email" role="alert"></p></div>
+        <div><label for="f-msg">Message</label><textarea id="f-msg" name="message" rows="5" required></textarea><p class="error" id="e-msg" role="alert"></p></div>
+        <div><button class="btn" type="submit" id="f-send">Send message</button></div>
+        <p class="status" id="f-status" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap"><span>&copy; <span id="year">2025</span> __TITLE__</span><a href="#top">Back to top</a></div>
+</footer>
+
+<script>
+"use strict";
+(function () {
+  var root = document.documentElement;
+
+  /* ---------- theme: follows the system until the visitor chooses ---------- */
+  function savedTheme() { try { return localStorage.getItem("theme"); } catch (e) { return null; } }
+  var theme = savedTheme();
+  if (theme) root.setAttribute("data-theme", theme);
+  document.getElementById("theme-toggle").addEventListener("click", function () {
+    var dark = root.getAttribute("data-theme") === "dark" ||
+      (!root.getAttribute("data-theme") && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    var next = dark ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("theme", next); } catch (e) { /* private mode */ }
+  });
+
+  /* ---------- mobile navigation ---------- */
+  var nav = document.getElementById("site-nav"), toggle = document.getElementById("nav-toggle");
+  function setNav(open) { nav.classList.toggle("open", open); toggle.setAttribute("aria-expanded", String(open)); toggle.setAttribute("aria-label", open ? "Close menu" : "Open menu"); }
+  toggle.addEventListener("click", function () { setNav(!nav.classList.contains("open")); });
+  nav.addEventListener("click", function (e) { if (e.target.closest && e.target.closest("a")) setNav(false); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") setNav(false); });
+
+  /* ---------- reveal on scroll (content stays visible without IntersectionObserver) ---------- */
+  var items = document.querySelectorAll(".reveal");
+  if ("IntersectionObserver" in window && items.length) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); } });
+    }, { threshold: 0.12 });
+    items.forEach(function (el) { io.observe(el); });
+  } else { items.forEach(function (el) { el.classList.add("in"); }); }
+
+  /* ---------- contact form: validation with inline messages ---------- */
+  var form = document.getElementById("contact-form"), status = document.getElementById("f-status");
+  function fieldError(id, errId, msg) {
+    var el = document.getElementById(id); document.getElementById(errId).textContent = msg;
+    if (msg) el.setAttribute("aria-invalid", "true"); else el.removeAttribute("aria-invalid");
+    return !msg;
+  }
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = document.getElementById("f-name").value.trim(), email = document.getElementById("f-email").value.trim(), msg = document.getElementById("f-msg").value.trim();
+    var ok = fieldError("f-name", "e-name", name.length < 2 ? "Please enter your name." : "");
+    ok = fieldError("f-email", "e-email", /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? "" : "Please enter a valid email address.") && ok;
+    ok = fieldError("f-msg", "e-msg", msg.length < 10 ? "Please write at least 10 characters." : "") && ok;
+    if (!ok) { status.textContent = ""; return; }
+    /* EDIT: send the data to your backend here, for example fetch("/api/contact", { method: "POST", ... }) */
+    status.textContent = "Thanks, " + name + ". We will reply to " + email + " soon.";
+    form.reset();
+  });
+  document.getElementById("year").textContent = String(new Date().getFullYear());
+})();
+</script>
+</body>
+</html>

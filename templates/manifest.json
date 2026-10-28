@@ -1,0 +1,82 @@
+{
+ "templates": {
+  "game-2d": {
+   "file": "game-2d.html",
+   "default_path": "index.html",
+   "desc": "complete 2D arcade engine (canvas, touch joystick + keyboard + dash, sound, particles, combo, difficulty ramp, menus) with a playable demo",
+   "vars": {
+    "TITLE": "Orb Rush",
+    "ACCENT": "#35c48f",
+    "LANG": "en"
+   },
+   "guide": "Keep the engine (loop, input, sound, overlay, HUD plumbing). Replace the content: the world, the art, the rules.",
+   "min_novelty": 0.32,
+   "customize": [
+    "Redraw every entity with theme-specific art built from canvas paths (not plain circles): player, collectibles, hazards, and a themed background with parallax layers or scenery.",
+    "Add at least two mechanics the template does not have (power-ups such as shield or magnet, a second enemy behavior, shooting, waves or a boss, a dash upgrade, levels).",
+    "Rework the menu, HUD and game-over screen to match the theme: title treatment, real instructions, themed colors and typography, floating +score text.",
+    "Add varied sound events (and a small procedural music loop if it fits) and visual feedback for every event.",
+    "Add progression: levels or waves with a clear difficulty curve, and persist useful state (best score, settings)."
+   ]
+  },
+  "game-3d": {
+   "file": "game-3d.html",
+   "default_path": "index.html",
+   "desc": "complete Three.js r128 arena game (follow camera, joystick + keyboard, gems, chasers, particles, menus)",
+   "vars": {
+    "TITLE": "Gem Arena",
+    "ACCENT": "#35c48f",
+    "LANG": "en"
+   },
+   "guide": "Keep the engine (renderer, camera, input, states). Replace the world, the models and the rules.",
+   "min_novelty": 0.32,
+   "customize": [
+    "Build themed models from grouped primitives for the player, gems and enemies (not plain spheres), and give the world props, a sky or fog color that fits the theme, and landmarks.",
+    "Add at least two mechanics the template does not have (power-ups, a second enemy type, obstacles, a goal or level system, a dash or jump).",
+    "Rework the menu, HUD and game-over screen to match the theme, with real instructions and a title treatment.",
+    "Add particles and camera feedback for events (collect, hit, power-up) and a difficulty curve across levels or waves.",
+    "Keep performance in check: shared geometries and materials, no allocation in update(), capped pixel ratio."
+   ]
+  },
+  "web-landing": {
+   "file": "web-landing.html",
+   "default_path": "index.html",
+   "desc": "responsive accessible one-page site (hero, features, steps, pricing, FAQ, contact form) with light and dark themes",
+   "vars": {
+    "TITLE": "Brand",
+    "TAGLINE": "A short, specific promise",
+    "DESCRIPTION": "One or two sentences that say what it is and who it is for.",
+    "ACCENT": "#1b6e50",
+    "LANG": "en"
+   },
+   "guide": "Keep the design tokens, accessibility and responsive behavior. Replace the identity, the content and the layout.",
+   "min_novelty": 0.5,
+   "customize": [
+    "Create a distinct brand identity: a palette beyond one accent (surface, ink, secondary tone), a deliberate type pairing or weights, and a shape language that fits the subject.",
+    "Replace EVERY placeholder with real, specific copy; remove sections that do not apply and add the ones that do (gallery, timeline, comparison table, case studies, team, location), with real structure for the subject.",
+    "Design a custom hero visual with inline SVG or CSS illustration instead of the generic preview card.",
+    "Vary the layout from the template (split sections, bento grid, large type, alternating rows) while keeping spacing tokens.",
+    "Add tasteful interactions (hover and reveal states, a sticky call to action, a working form handler or filter) and a footer with real links."
+   ]
+  },
+  "web-app": {
+   "file": "web-app.html",
+   "default_path": "index.html",
+   "desc": "single-file app shell (state/render, add/edit/delete with undo, filters, search, dialog, shortcuts, localStorage)",
+   "vars": {
+    "TITLE": "Taskboard",
+    "ACCENT": "#1b6e50",
+    "LANG": "en"
+   },
+   "guide": "Keep the state -> render -> events structure. Replace the domain, the fields and the views.",
+   "min_novelty": 0.35,
+   "customize": [
+    "Model the real domain: change the item fields, labels, validation and sample data to fit the request.",
+    "Add at least two features beyond the template (a summary or stats view with inline SVG charts, sorting, tags or categories, import/export, due dates, drag to reorder).",
+    "Give it a distinct look: its own palette, spacing and typography, better empty states and microcopy, not the starter's skin.",
+    "Add keyboard shortcuts and accessible announcements for every new action, and persist the new fields with a bumped storage version.",
+    "Handle errors visibly (invalid input, failed save) with clear messages."
+   ]
+  }
+ }
+}

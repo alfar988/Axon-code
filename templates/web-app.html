@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<!--
+  TEMPLATE web-app: a complete single-file app shell with the structure every small web app needs:
+  one `state` object -> pure helpers -> render() -> event handlers that change state and call render().
+  Includes: add / edit (dialog) / toggle / delete with undo, filters, search, keyboard shortcuts, empty state,
+  accessible live announcements, localStorage persistence with a versioned shape, light and dark themes.
+  Adapt it by editing the places marked EDIT: the item fields, labels, the filter list and the CSS tokens.
+-->
+<html lang="__LANG__">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>__TITLE__</title>
+<meta name="theme-color" content="#f5f6f8">
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #ffffff; --ink: #1b1f24; --muted: #5a626c; --line: #dde1e6; --accent: __ACCENT__; --accent-ink: #ffffff;
+    --danger: #b3261e; --radius: 12px; --shadow: 0 1px 2px rgba(15,20,25,.06), 0 6px 18px rgba(15,20,25,.07);
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111418; --surface: #1a1f25; --ink: #eceff3; --muted: #a0a9b4; --line: #2b323a; --danger: #ff8a80; }
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); line-height: 1.5; min-height: 100vh; min-height: 100dvh; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  .app { display: grid; grid-template-columns: 1fr; min-height: 100vh; min-height: 100dvh; }
+  @media (min-width: 860px) { .app { grid-template-columns: 240px 1fr; } }
+  aside { background: var(--surface); border-bottom: 1px solid var(--line); padding: 14px 16px; }
+  @media (min-width: 860px) { aside { border-bottom: 0; border-right: 1px solid var(--line); padding: 24px 18px; } }
+  .logo { font-weight: 800; letter-spacing: -.02em; font-size: 1.15rem; margin-bottom: 14px; }
+  .filters { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+  @media (min-width: 860px) { .filters { flex-direction: column; overflow: visible; } }
+  .filters button { flex: none; display: flex; justify-content: space-between; gap: 12px; align-items: center; min-height: 44px; padding: 0 14px; border: 1px solid transparent; border-radius: 10px;
+                    background: transparent; color: var(--muted); font: 600 .95rem var(--font); cursor: pointer; }
+  .filters button:hover { background: var(--bg); color: var(--ink); }
+  .filters button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+  .filters .count { font-variant-numeric: tabular-nums; opacity: .85; }
+  main { padding: 18px 16px 80px; width: min(100%, 760px); margin-inline: auto; }
+  .top { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; }
+  .top h1 { font-size: 1.35rem; margin: 0 auto 0 0; letter-spacing: -.01em; }
+  input, select, textarea { font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 12px; }
+  input:hover, select:hover { border-color: var(--muted); }
+  input[type="search"] { width: min(46%, 240px); }
+  .add { display: grid; grid-template-columns: 1fr; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 18px; box-shadow: var(--shadow); }
+  @media (min-width: 560px) { .add { grid-template-columns: 1fr 140px auto; } }
+  .btn { min-height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid transparent; background: var(--accent); color: var(--accent-ink); font: 700 .95rem var(--font); cursor: pointer; }
+  .btn:hover { filter: brightness(1.07); }
+  .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+  .btn.ghost:hover { border-color: var(--accent); }
+  .btn.danger { background: transparent; color: var(--danger); border-color: var(--line); }
+  .btn.danger:hover { border-color: var(--danger); }
+  ul.list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .item { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; }
+  .item:hover { border-color: var(--muted); }
+  .item.done .title { text-decoration: line-through; color: var(--muted); }
+  .check { width: 26px; height: 26px; border-radius: 8px; border: 2px solid var(--muted); background: transparent; display: grid; place-items: center; cursor: pointer; padding: 0; color: var(--accent-ink); }
+  .check[aria-checked="true"] { background: var(--accent); border-color: var(--accent); }
+  .check svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+  .check[aria-checked="true"] svg { opacity: 1; }
+  .title { overflow-wrap: anywhere; }
+  .meta { font-size: .8rem; color: var(--muted); margin-top: 2px; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--line); font-size: .75rem; font-weight: 600; margin-right: 6px; }
+  .tag.high { border-color: var(--danger); color: var(--danger); }
+  .actions { display: flex; gap: 6px; }
+  .small { min-height: 36px; padding: 0 12px; font-size: .85rem; }
+  .empty { text-align: center; color: var(--muted); padding: 48px 12px; border: 1px dashed var(--line); border-radius: var(--radius); }
+  .empty strong { display: block; color: var(--ink); font-size: 1.05rem; margin-bottom: 4px; }
+  dialog { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); color: var(--ink); padding: 20px; width: min(92vw, 420px); }
+  dialog::backdrop { background: rgba(0,0,0,.45); }
+  dialog form { display: grid; gap: 12px; }
+  dialog label { font-weight: 600; font-size: .9rem; display: block; margin-bottom: 4px; }
+  dialog input, dialog select { width: 100%; }
+  .row { display: flex; gap: 8px; justify-content: flex-end; }
+  #toast { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 14px; border-radius: 10px;
+           display: flex; gap: 14px; align-items: center; box-shadow: var(--shadow); max-width: 92vw; }
+  #toast[hidden] { display: none; }
+  #toast button { background: transparent; border: 0; color: inherit; font: 700 .9rem var(--font); text-decoration: underline; cursor: pointer; min-height: 36px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="logo">__TITLE__</div>
+    <nav class="filters" id="filters" aria-label="Filter"></nav>
+  </aside>
+  <main>
+    <div class="top">
+      <h1 id="heading">All items</h1>
+      <label class="sr" for="q">Search</label>
+      <input id="q" type="search" placeholder="Search ( / )" autocomplete="off">
+    </div>
+    <form class="add" id="add-form" autocomplete="off">
+      <div><label class="sr" for="new-title">New item</label><input id="new-title" type="text" placeholder="Add something... ( n )" maxlength="120" style="width:100%" required></div>
+      <div><label class="sr" for="new-prio">Priority</label>
+        <select id="new-prio" style="width:100%"><option value="normal">Normal</option><option value="high">High</option><option value="low">Low</option></select></div>
+      <button class="btn" type="submit">Add</button>
+    </form>
+    <ul class="list" id="list" aria-label="Items"></ul>
+    <p class="sr" id="live" role="status" aria-live="polite"></p>
+  </main>
+</div>
+
+<dialog id="edit-dlg" aria-labelledby="edit-title">
+  <form method="dialog" id="edit-form">
+    <h2 id="edit-title" style="margin:0 0 4px;font-size:1.1rem">Edit item</h2>
+    <div><label for="edit-name">Title</label><input id="edit-name" type="text" maxlength="120" required></div>
+    <div><label for="edit-prio">Priority</label><select id="edit-prio"><option value="normal">Normal</option><option value="high">High</option><option value="low">Low</option></select></div>
+    <div class="row"><button class="btn ghost" type="button" id="edit-cancel">Cancel</button><button class="btn" type="submit">Save</button></div>
+  </form>
+</dialog>
+<div id="toast" role="status" hidden><span id="toast-msg"></span><button type="button" id="toast-undo">Undo</button></div>
+
+<script>
+"use strict";
+(function () {
+  /* ================================ EDIT: SHAPE ============================== */
+  var STORAGE_KEY = "__TITLE__:v1";                                        // bump the suffix when the saved shape changes
+  var FILTERS = [["all", "All"], ["active", "Active"], ["done", "Done"], ["high", "High priority"]];
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ================================== STATE ================================== */
+  function load() {
+    try { var raw = localStorage.getItem(STORAGE_KEY); var data = raw ? JSON.parse(raw) : null; if (data && Array.isArray(data.items)) return data.items; } catch (e) { /* corrupted or blocked */ }
+    return [{ id: "seed1", title: "Try adding an item", priority: "normal", done: false, created: Date.now() }];
+  }
+  var state = { items: load(), filter: "all", query: "", removed: null };
+  function save() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 1, items: state.items })); } catch (e) { /* storage unavailable: keep working in memory */ } }
+  function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  /* =================================== LOGIC ================================= */
+  function visible() {
+    var q = state.query.trim().toLowerCase();
+    return state.items.filter(function (it) {
+      if (state.filter === "active" && it.done) return false;
+      if (state.filter === "done" && !it.done) return false;
+      if (state.filter === "high" && it.priority !== "high") return false;
+      return !q || it.title.toLowerCase().indexOf(q) !== -1;
+    });
+  }
+  function add(title, priority) {
+    title = String(title || "").trim().slice(0, 120);
+    if (!title) return null;
+    var it = { id: uid(), title: title, priority: priority || "normal", done: false, created: Date.now() };
+    state.items.unshift(it); save(); render(); announce("Added: " + title); return it;
+  }
+  function find(id) { for (var i = 0; i < state.items.length; i++) if (state.items[i].id === id) return state.items[i]; return null; }
+  function toggle(id) { var it = find(id); if (!it) return; it.done = !it.done; save(); render(); }
+  function update(id, patch) {
+    var it = find(id); if (!it) return;
+    if (typeof patch.title === "string") { var t = patch.title.trim().slice(0, 120); if (!t) return; it.title = t; }
+    if (patch.priority) it.priority = patch.priority;
+    save(); render();
+  }
+  function remove(id) {
+    var idx = state.items.findIndex(function (i) { return i.id === id; }); if (idx < 0) return;
+    state.removed = { item: state.items[idx], index: idx }; state.items.splice(idx, 1); save(); render();
+    toast("Deleted \u201c" + state.removed.item.title + "\u201d");
+  }
+  function undo() {
+    if (!state.removed) return; state.items.splice(Math.min(state.removed.index, state.items.length), 0, state.removed.item);
+    state.removed = null; save(); render(); hideToast();
+  }
+  function setFilter(f) { state.filter = f; render(); }
+
+  /* ================================== RENDER ================================= */
+  var SVG_CHECK = "M5 12.5l4.5 4.5L19 7.5";
+  function el(tag, attrs, text) {
+    var n = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) { if (k === "class") n.className = attrs[k]; else n.setAttribute(k, attrs[k]); });
+    if (text !== undefined) n.textContent = text;                         // textContent: user text is never parsed as HTML
+    return n;
+  }
+  function renderFilters() {
+    var box = $("filters"); box.textContent = "";
+    FILTERS.forEach(function (f) {
+      var count = state.items.filter(function (it) { return f[0] === "all" || (f[0] === "active" && !it.done) || (f[0] === "done" && it.done) || (f[0] === "high" && it.priority === "high"); }).length;
+      var b = el("button", { type: "button", "data-filter": f[0], "aria-pressed": String(state.filter === f[0]) });
+      b.appendChild(el("span", null, f[1])); b.appendChild(el("span", { class: "count" }, String(count))); box.appendChild(b);
+    });
+  }
+  function renderItem(it) {
+    var li = el("li", { class: "item" + (it.done ? " done" : ""), "data-id": it.id });
+    var check = el("button", { class: "check", type: "button", role: "checkbox", "aria-checked": String(it.done), "aria-label": (it.done ? "Mark as not done: " : "Mark as done: ") + it.title, "data-act": "toggle" });
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg"); svg.setAttribute("viewBox", "0 0 24 24");
+    var path = document.createElementNS("http://www.w3.org/2000/svg", "path"); path.setAttribute("d", SVG_CHECK); svg.appendChild(path); check.appendChild(svg);
+    var body = el("div"); body.appendChild(el("div", { class: "title" }, it.title));
+    var meta = el("div", { class: "meta" }); meta.appendChild(el("span", { class: "tag" + (it.priority === "high" ? " high" : "") }, it.priority));
+    meta.appendChild(document.createTextNode(new Date(it.created).toLocaleDateString())); body.appendChild(meta);
+    var acts = el("div", { class: "actions" });
+    acts.appendChild(el("button", { class: "btn ghost small", type: "button", "data-act": "edit", "aria-label": "Edit: " + it.title }, "Edit"));
+    acts.appendChild(el("button", { class: "btn danger small", type: "button", "data-act": "delete", "aria-label": "Delete: " + it.title }, "Delete"));
+    li.appendChild(check); li.appendChild(body); li.appendChild(acts); return li;
+  }
+  function render() {
+    renderFilters();
+    var list = $("list"), items = visible(); list.textContent = "";
+    var label = FILTERS.filter(function (f) { return f[0] === state.filter; })[0];
+    $("heading").textContent = (label ? label[1] : "Items");
+    if (!items.length) {
+      var empty = el("li", { class: "empty" }); empty.appendChild(el("strong", null, state.items.length ? "Nothing matches" : "Nothing here yet"));
+      empty.appendChild(document.createTextNode(state.items.length ? "Try another filter or search." : "Add your first item above.")); list.appendChild(empty); return;
+    }
+    items.forEach(function (it) { list.appendChild(renderItem(it)); });
+  }
+  function announce(msg) { $("live").textContent = msg; }
+  var toastTimer = null;
+  function toast(msg) { $("toast-msg").textContent = msg; $("toast").hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(hideToast, 6000); }
+  function hideToast() { $("toast").hidden = true; }
+
+  /* ================================== EVENTS ================================= */
+  $("add-form").addEventListener("submit", function (e) { e.preventDefault(); var t = $("new-title"); if (add(t.value, $("new-prio").value)) t.value = ""; t.focus(); });
+  $("filters").addEventListener("click", function (e) { var b = e.target.closest && e.target.closest("button[data-filter]"); if (b) setFilter(b.getAttribute("data-filter")); });
+  $("q").addEventListener("input", function (e) { state.query = e.target.value; render(); });
+  var editingId = null;
+  $("list").addEventListener("click", function (e) {
+    var btn = e.target.closest && e.target.closest("[data-act]"); if (!btn) return;
+    var li = btn.closest("li[data-id]"); if (!li) return; var id = li.getAttribute("data-id"), act = btn.getAttribute("data-act");
+    if (act === "toggle") toggle(id); else if (act === "delete") remove(id);
+    else if (act === "edit") { var it = find(id); if (!it) return; editingId = id; $("edit-name").value = it.title; $("edit-prio").value = it.priority; $("edit-dlg").showModal(); }
+  });
+  $("edit-form").addEventListener("submit", function () { if (editingId) update(editingId, { title: $("edit-name").value, priority: $("edit-prio").value }); editingId = null; });
+  $("edit-cancel").addEventListener("click", function () { editingId = null; $("edit-dlg").close(); });
+  $("toast-undo").addEventListener("click", undo);
+  document.addEventListener("keydown", function (e) {
+    var tag = (e.target && e.target.tagName || "").toLowerCase(); if (tag === "input" || tag === "textarea" || tag === "select") return;
+    if (e.key === "/") { e.preventDefault(); $("q").focus(); } else if (e.key === "n") { e.preventDefault(); $("new-title").focus(); }
+  });
+
+  render();
+  window.app = { state: state, add: add, toggle: toggle, update: update, remove: remove, undo: undo, setFilter: setFilter, visible: visible };   // for tests and debugging
+})();
+</script>
+</body>
+</html>

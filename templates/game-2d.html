@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<!--
+  TEMPLATE game-2d: a complete, tested arcade engine with a small playable demo ("collect orbs, dodge hazards").
+  Engine (do not rewrite): fixed-timestep loop, DPR-aware canvas scaling, keyboard + touch joystick + dash,
+  WebAudio sound, particles, screen shake, hit-stop, combo, difficulty ramp, state machine, best score.
+  Adapt it by editing the places marked EDIT: CONFIG, the draw*() functions and spawn rules. Keep it ONE file.
+-->
+<html lang="__LANG__">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f1318">
+<title>__TITLE__</title>
+<style>
+  :root {
+    --bg: #0f1318; --panel: #171d25; --line: #263040; --ink: #eef2f6; --muted: #9aa7b6;
+    --accent: __ACCENT__; --accent-ink: #08140f; --danger: #ff6b6b; --radius: 14px;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); overflow: hidden; overscroll-behavior: none; }
+  body {
+    height: 100vh; height: 100dvh; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  #stage { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
+  canvas { display: block; background: #0b0f13; border-radius: 8px; touch-action: none; }
+  #hud { position: absolute; top: max(env(safe-area-inset-top), 8px); left: 8px; right: 8px; display: flex; gap: 10px; align-items: center; pointer-events: none; z-index: 2; }
+  .stat { display: flex; flex-direction: column; line-height: 1.1; min-width: 56px; }
+  .stat .k { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .stat .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #hud .grow { flex: 1; }
+  .pips { display: flex; gap: 5px; min-height: 22px; align-items: center; }
+  .pip { width: 12px; height: 12px; border-radius: 50%; background: var(--danger); }
+  .pip.off { background: transparent; box-shadow: inset 0 0 0 2px var(--line); }
+  .icon { pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: rgba(23,29,37,.85); color: var(--ink);
+          display: grid; place-items: center; cursor: pointer; }
+  .icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .icon:hover { border-color: var(--accent); }
+  .icon:focus-visible, .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  #overlay { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(8,11,15,.72); z-index: 3; padding: 16px; }
+  #overlay[hidden] { display: none; }
+  .card { width: min(92vw, 380px); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px 22px; text-align: center; display: grid; gap: 12px; }
+  .card h1 { font-size: clamp(24px, 6vw, 32px); letter-spacing: -.01em; }
+  .card p { color: var(--muted); font-size: 15px; line-height: 1.5; }
+  .card .big { color: var(--ink); font-size: 36px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .btn { min-height: 48px; padding: 0 22px; border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font: 700 16px var(--font); cursor: pointer; touch-action: manipulation; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(1px); }
+  @media (prefers-reduced-motion: reduce) { .btn:active { transform: none; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" aria-label="Game area"></canvas>
+  <header id="hud">
+    <div class="stat"><span class="k">Score</span><span class="v" id="hud-score">0</span></div>
+    <div class="stat"><span class="k">Best</span><span class="v" id="hud-best">0</span></div>
+    <div class="stat"><span class="k">Lives</span><span class="pips" id="hud-lives" role="img" aria-label="lives left"></span></div>
+    <span class="grow"></span>
+    <button class="icon" id="btn-mute" type="button" aria-label="Toggle sound">
+      <svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+    </button>
+    <button class="icon" id="btn-pause" type="button" aria-label="Pause">
+      <svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>
+    </button>
+  </header>
+  <div id="overlay" role="dialog" aria-modal="true" aria-labelledby="ov-title">
+    <div class="card">
+      <h1 id="ov-title">__TITLE__</h1>
+      <div class="big" id="ov-big" hidden></div>
+      <p id="ov-text">Collect the glowing orbs. Avoid the red hazards.</p>
+      <p>Move with arrow keys, WASD or by dragging. Dash with Space or by tapping the right side.</p>
+      <button class="btn" id="ov-btn" type="button">Play</button>
+    </div>
+  </div>
+</div>
+<noscript>This game needs JavaScript.</noscript>
+<script>
+"use strict";
+/* =============================== EDIT: CONFIG =============================== */
+const CONFIG = {
+  title: "__TITLE__",
+  world: { w: 360, h: 640 },                                   // logical size; the canvas scales to fit any screen
+  player: { speed: 220, radius: 14, lives: 3, dashSpeed: 520, dashTime: 0.16, dashCooldown: 0.9, invuln: 1.1 },
+  orb: { radius: 10, value: 10, life: 7 },
+  hazard: { radius: 13, speed: 70 },
+  spawn: { orbEvery: 0.8, hazardEvery: 1.7, maxOrbs: 6, maxHazards: 14 },
+  rampSeconds: 40,                                              // difficulty rises by 1 every N seconds
+  comboWindow: 2.0,
+  colors: { bg: "#0b0f13", dot: "#18212b", player: "#eef2f6", orb: "__ACCENT__", orbBonus: "#ffd166", hazard: "#ff6b6b", ui: "#eef2f6" }
+};
+
+/* ================================ UTILITIES ================================= */
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const rand = (a, b) => a + Math.random() * (b - a);
+const dist2 = (a, b) => (a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y);
+const $ = (id) => document.getElementById(id);
+
+const Store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode: ignore */ } }
+};
+
+/* ================================== SOUND =================================== */
+const Sound = (() => {
+  let ac = null, muted = Store.get("muted", false);
+  function unlock() {
+    if (!ac) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) ac = new AC(); }
+    if (ac && ac.state === "suspended") ac.resume();
+  }
+  function tone(freq, dur, type, vol, slide) {
+    if (!ac || muted) return;
+    const t = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(freq, t);
+    if (slide) o.frequency.exponentialRampToValueAtTime(Math.max(30, freq * slide), t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + dur + 0.02);
+  }
+  const bank = {
+    pickup: () => tone(620, 0.12, "triangle", 0.14, 1.7),
+    combo: () => { tone(760, 0.1, "triangle", 0.14, 1.5); tone(1140, 0.16, "triangle", 0.1, 1.3); },
+    hit: () => tone(150, 0.3, "sawtooth", 0.16, 0.45),
+    dash: () => tone(300, 0.14, "square", 0.06, 2.2),
+    start: () => tone(440, 0.18, "triangle", 0.12, 1.8),
+    over: () => { tone(330, 0.35, "sawtooth", 0.14, 0.5); tone(220, 0.5, "sawtooth", 0.12, 0.5); }
+  };
+  return {
+    unlock,
+    play(name) { try { if (bank[name]) bank[name](); } catch (e) { /* audio is optional */ } },
+    toggle() { muted = !muted; Store.set("muted", muted); return muted; },
+    get muted() { return muted; }
+  };
+})();
+
+/* ================================== INPUT =================================== */
+const canvas = $("game"), ctx = canvas.getContext("2d");
+const Input = {
+  keys: new Set(), dash: false,
+  stick: { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 },
+  vec() {
+    const k = Input.keys;
+    let x = (k.has("ArrowRight") || k.has("d") || k.has("D") ? 1 : 0) - (k.has("ArrowLeft") || k.has("a") || k.has("A") ? 1 : 0);
+    let y = (k.has("ArrowDown") || k.has("s") || k.has("S") ? 1 : 0) - (k.has("ArrowUp") || k.has("w") || k.has("W") ? 1 : 0);
+    if (Input.stick.active) { x = Input.stick.x; y = Input.stick.y; }
+    const m = Math.hypot(x, y);
+    return m > 1 ? { x: x / m, y: y / m } : { x, y };
+  }
+};
+const STICK_RADIUS = 46;
+function toWorld(e) {
+  const r = canvas.getBoundingClientRect();
+  return { x: (e.clientX - r.left) / r.width * CONFIG.world.w, y: (e.clientY - r.top) / r.height * CONFIG.world.h };
+}
+canvas.addEventListener("pointerdown", (e) => {
+  Sound.unlock();
+  const p = toWorld(e);
+  if (G.state !== "play") return;
+  if (p.x > CONFIG.world.w * 0.62 && !Input.stick.active) { Input.dash = true; return; }       // right side: dash
+  if (!Input.stick.active) {
+    Input.stick = { active: true, id: e.pointerId, ox: p.x, oy: p.y, x: 0, y: 0 };
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  }
+  e.preventDefault();
+});
+canvas.addEventListener("pointermove", (e) => {
+  const s = Input.stick;
+  if (!s.active || e.pointerId !== s.id) return;
+  const p = toWorld(e);
+  s.x = clamp((p.x - s.ox) / STICK_RADIUS, -1, 1); s.y = clamp((p.y - s.oy) / STICK_RADIUS, -1, 1);
+  e.preventDefault();
+});
+function releaseStick(e) { if (Input.stick.active && e.pointerId === Input.stick.id) Input.stick = { active: false, id: null, ox: 0, oy: 0, x: 0, y: 0 }; }
+canvas.addEventListener("pointerup", releaseStick);
+canvas.addEventListener("pointercancel", releaseStick);
+window.addEventListener("keydown", (e) => {
+  Sound.unlock();
+  if (e.key === " " || e.key.startsWith("Arrow")) e.preventDefault();
+  if (e.repeat) return;
+  Input.keys.add(e.key);
+  if (e.key === " " && G.state === "play") Input.dash = true;
+  if ((e.key === "Escape" || e.key === "p" || e.key === "P") && (G.state === "play" || G.state === "pause")) togglePause();
+  else if ((e.key === "Enter" || e.key === " ") && G.state !== "play") primaryAction();
+  if (e.key === "m" || e.key === "M") toggleMute();
+});
+window.addEventListener("keyup", (e) => Input.keys.delete(e.key));
+window.addEventListener("blur", () => { Input.keys.clear(); if (G.state === "play") togglePause(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && G.state === "play") togglePause(); });
+
+/* ================================== STATE =================================== */
+const G = {
+  state: "menu", t: 0, score: 0, best: Store.get("best", 0), lives: 0, combo: 0, comboT: 0, diff: 1,
+  shake: 0, hitstop: 0, flash: 0, orbT: 0, hazT: 0, player: null, orbs: [], hazards: [], parts: []
+};
+
+function newPlayer() {
+  return { x: CONFIG.world.w / 2, y: CONFIG.world.h * 0.72, vx: 0, vy: 0, r: CONFIG.player.radius, dashT: 0, dashCd: 0, inv: 0, trail: [] };
+}
+function startGame() {
+  Object.assign(G, { state: "play", t: 0, score: 0, lives: CONFIG.player.lives, combo: 0, comboT: 0, diff: 1, shake: 0, hitstop: 0, flash: 0,
+                     orbT: 0, hazT: 0, orbs: [], hazards: [], parts: [], player: newPlayer() });
+  Sound.play("start");
+  hideOverlay(); syncHud(true);
+}
+function endGame() {
+  G.state = "over"; Sound.play("over");
+  const record = G.score > G.best;
+  if (record) { G.best = G.score; Store.set("best", G.best); }
+  showOverlay("Game over", record ? "New best score!" : "Best: " + G.best, "Play again", G.score);
+  syncHud(true);
+}
+function togglePause() {
+  if (G.state === "play") { G.state = "pause"; showOverlay("Paused", "Take a breath.", "Resume"); }
+  else if (G.state === "pause") { G.state = "play"; hideOverlay(); }
+}
+function primaryAction() { if (G.state === "pause") togglePause(); else startGame(); }
+
+/* ============================ EDIT: SPAWN RULES ============================= */
+function spawnOrb() {
+  const bonus = Math.random() < 0.12;                                  // rare gold orb: worth more, lives shorter
+  G.orbs.push({ x: rand(24, CONFIG.world.w - 24), y: rand(70, CONFIG.world.h - 40), r: CONFIG.orb.radius * (bonus ? 1.25 : 1),
+                value: CONFIG.orb.value * (bonus ? 3 : 1), bonus, life: CONFIG.orb.life * (bonus ? 0.6 : 1), age: 0 });
+}
+function spawnHazard() {
+  const side = Math.floor(rand(0, 4)), W = CONFIG.world.w, H = CONFIG.world.h, sp = CONFIG.hazard.speed * (0.8 + G.diff * 0.22);
+  const pos = [[rand(0, W), -20], [W + 20, rand(0, H)], [rand(0, W), H + 20], [-20, rand(0, H)]][side];
+  const tx = G.player.x + rand(-90, 90), ty = G.player.y + rand(-90, 90), a = Math.atan2(ty - pos[1], tx - pos[0]);
+  G.hazards.push({ x: pos[0], y: pos[1], vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, r: CONFIG.hazard.radius * rand(0.85, 1.2), spin: rand(-3, 3), rot: 0, bounces: 1 });
+}
+function burst(x, y, color, n, speed) {
+  for (let i = 0; i < n && G.parts.length < 220; i++) {
+    const a = rand(0, Math.PI * 2), s = rand(0.3, 1) * (speed || 140);
+    G.parts.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: rand(0.35, 0.7), age: 0, r: rand(1.5, 3.2), color });
+  }
+}
+
+/* ================================== UPDATE ================================== */
+function update(dt) {
+  if (G.state !== "play") return;
+  if (G.hitstop > 0) { G.hitstop -= dt; return; }
+  const P = G.player, W = CONFIG.world.w, H = CONFIG.world.h;
+  G.t += dt; G.diff = 1 + G.t / CONFIG.rampSeconds;
+  G.shake = Math.max(0, G.shake - dt * 28); G.flash = Math.max(0, G.flash - dt * 3);
+
+  // player movement and dash
+  const v = Input.vec();
+  if (Input.dash && P.dashCd <= 0) {
+    P.dashT = CONFIG.player.dashTime; P.dashCd = CONFIG.player.dashCooldown; Sound.play("dash");
+    if (!v.x && !v.y) { P.dvx = 0; P.dvy = -1; } else { P.dvx = v.x; P.dvy = v.y; }
+  }
+  Input.dash = false;
+  P.dashCd = Math.max(0, P.dashCd - dt); P.inv = Math.max(0, P.inv - dt);
+  if (P.dashT > 0) { P.dashT -= dt; P.vx = P.dvx * CONFIG.player.dashSpeed; P.vy = P.dvy * CONFIG.player.dashSpeed; }
+  else { P.vx = v.x * CONFIG.player.speed; P.vy = v.y * CONFIG.player.speed; }
+  P.x = clamp(P.x + P.vx * dt, P.r, W - P.r); P.y = clamp(P.y + P.vy * dt, P.r + 54, H - P.r);
+  P.trail.push({ x: P.x, y: P.y }); if (P.trail.length > 9) P.trail.shift();
+
+  // spawning (rate rises with difficulty)
+  G.orbT -= dt; G.hazT -= dt;
+  if (G.orbT <= 0 && G.orbs.length < CONFIG.spawn.maxOrbs) { spawnOrb(); G.orbT = CONFIG.spawn.orbEvery * rand(0.7, 1.3); }
+  if (G.hazT <= 0 && G.hazards.length < CONFIG.spawn.maxHazards) { spawnHazard(); G.hazT = CONFIG.spawn.hazardEvery / (0.7 + G.diff * 0.3); }
+
+  // orbs
+  for (let i = G.orbs.length - 1; i >= 0; i--) {
+    const o = G.orbs[i]; o.age += dt;
+    if (o.age > o.life) { G.orbs.splice(i, 1); continue; }
+    const rr = o.r + P.r;
+    if (dist2(o, P) < rr * rr) {
+      G.combo = G.comboT > 0 ? G.combo + 1 : 1; G.comboT = CONFIG.comboWindow;
+      const gain = o.value * Math.min(5, 1 + Math.floor(G.combo / 3));
+      G.score += gain; burst(o.x, o.y, o.bonus ? CONFIG.colors.orbBonus : CONFIG.colors.orb, o.bonus ? 18 : 10);
+      Sound.play(G.combo > 0 && G.combo % 3 === 0 ? "combo" : "pickup");
+      G.orbs.splice(i, 1); syncHud();
+    }
+  }
+  if (G.comboT > 0) { G.comboT -= dt; if (G.comboT <= 0) G.combo = 0; }
+
+  // hazards
+  for (let i = G.hazards.length - 1; i >= 0; i--) {
+    const h = G.hazards[i]; h.x += h.vx * dt; h.y += h.vy * dt; h.rot += h.spin * dt;
+    if (h.bounces > 0 && ((h.x < h.r && h.vx < 0) || (h.x > W - h.r && h.vx > 0))) { h.vx = -h.vx; h.bounces--; }
+    if (h.x < -60 || h.x > W + 60 || h.y < -60 || h.y > H + 60) { G.hazards.splice(i, 1); continue; }
+    const rr = h.r + P.r * 0.8;
+    if (P.inv <= 0 && P.dashT <= 0 && dist2(h, P) < rr * rr) {
+      G.lives--; P.inv = CONFIG.player.invuln; G.shake = 9; G.hitstop = 0.07; G.flash = 1; G.combo = 0; G.comboT = 0;
+      burst(P.x, P.y, CONFIG.colors.hazard, 22, 200); Sound.play("hit"); G.hazards.splice(i, 1); syncHud();
+      if (G.lives <= 0) { endGame(); return; }
+    }
+  }
+  updateParticles(dt);
+}
+function updateParticles(dt) {
+  for (let i = G.parts.length - 1; i >= 0; i--) {
+    const p = G.parts[i]; p.age += dt;
+    if (p.age >= p.life) { G.parts.splice(i, 1); continue; }
+    p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96;
+  }
+}
+
+/* ============================ EDIT: DRAW FUNCTIONS ========================== */
+function drawBackground() {
+  const W = CONFIG.world.w, H = CONFIG.world.h;
+  ctx.fillStyle = CONFIG.colors.bg; ctx.fillRect(0, 0, W, H);
+  ctx.fillStyle = CONFIG.colors.dot;
+  const off = (G.t * 12) % 40;
+  for (let y = -40 + off; y < H; y += 40) for (let x = 20; x < W; x += 40) ctx.fillRect(x, y, 2, 2);
+}
+function drawPlayer(P) {
+  for (let i = 0; i < P.trail.length; i++) {
+    const t = P.trail[i], k = i / P.trail.length;
+    ctx.globalAlpha = k * 0.35; ctx.fillStyle = CONFIG.colors.player;
+    ctx.beginPath(); ctx.arc(t.x, t.y, P.r * k, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = P.inv > 0 && Math.floor(G.t * 16) % 2 === 0 ? 0.35 : 1;
+  ctx.fillStyle = CONFIG.colors.player;
+  ctx.beginPath(); ctx.arc(P.x, P.y, P.r, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = CONFIG.colors.bg; ctx.beginPath(); ctx.arc(P.x + P.vx * 0.012, P.y + P.vy * 0.012 - 2, P.r * 0.42, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+function drawOrb(o) {
+  const pulse = 1 + Math.sin(o.age * 6) * 0.08, fade = o.life - o.age < 1.5 ? 0.4 + 0.6 * Math.abs(Math.sin(o.age * 14)) : 1;
+  const c = o.bonus ? CONFIG.colors.orbBonus : CONFIG.colors.orb;
+  ctx.globalAlpha = 0.22 * fade; ctx.fillStyle = c; ctx.beginPath(); ctx.arc(o.x, o.y, o.r * 1.9 * pulse, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = fade; ctx.beginPath(); ctx.arc(o.x, o.y, o.r * pulse, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+function drawHazard(h) {
+  ctx.save(); ctx.translate(h.x, h.y); ctx.rotate(h.rot); ctx.fillStyle = CONFIG.colors.hazard; ctx.beginPath();
+  for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2, r = i % 2 ? h.r * 0.62 : h.r * 1.15; ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+  ctx.closePath(); ctx.fill(); ctx.restore();
+}
+function drawStick() {
+  const s = Input.stick; if (!s.active) return;
+  ctx.globalAlpha = 0.35; ctx.strokeStyle = CONFIG.colors.ui; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(s.ox, s.oy, STICK_RADIUS, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = CONFIG.colors.ui; ctx.beginPath(); ctx.arc(s.ox + s.x * STICK_RADIUS, s.oy + s.y * STICK_RADIUS, 16, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+}
+function render() {
+  ctx.save();
+  if (G.shake > 0) ctx.translate(rand(-G.shake, G.shake), rand(-G.shake, G.shake));
+  drawBackground();
+  if (G.player) {
+    G.orbs.forEach(drawOrb); G.hazards.forEach(drawHazard); drawPlayer(G.player);
+    G.parts.forEach((p) => { ctx.globalAlpha = 1 - p.age / p.life; ctx.fillStyle = p.color; ctx.fillRect(p.x - p.r / 2, p.y - p.r / 2, p.r, p.r); });
+    ctx.globalAlpha = 1; drawStick();
+    if (G.combo > 1) { ctx.fillStyle = CONFIG.colors.orbBonus; ctx.font = "700 16px system-ui, sans-serif"; ctx.textAlign = "center";
+                       ctx.fillText("combo x" + G.combo, CONFIG.world.w / 2, 86); }
+  }
+  ctx.restore();
+  if (G.flash > 0) { ctx.fillStyle = "rgba(255,107,107," + (G.flash * 0.25) + ")"; ctx.fillRect(0, 0, CONFIG.world.w, CONFIG.world.h); }
+}
+
+/* ============================== HUD AND OVERLAY ============================= */
+const hud = { score: $("hud-score"), best: $("hud-best"), lives: $("hud-lives") };
+const shown = { score: -1, best: -1, lives: -1 };
+function syncHud(force) {
+  if (force || shown.score !== G.score) { hud.score.textContent = G.score; shown.score = G.score; }
+  if (force || shown.best !== G.best) { hud.best.textContent = G.best; shown.best = G.best; }
+  if (force || shown.lives !== G.lives) {
+    hud.lives.textContent = "";
+    for (let i = 0; i < CONFIG.player.lives; i++) { const d = document.createElement("span"); d.className = "pip" + (i < G.lives ? "" : " off"); hud.lives.appendChild(d); }
+    shown.lives = G.lives;
+  }
+}
+function showOverlay(title, text, button, big) {
+  $("ov-title").textContent = title; $("ov-text").textContent = text; $("ov-btn").textContent = button;
+  const b = $("ov-big"); b.hidden = big === undefined; if (big !== undefined) b.textContent = big;
+  $("overlay").hidden = false; $("ov-btn").focus();
+}
+function hideOverlay() { $("overlay").hidden = true; canvas.focus && canvas.focus(); }
+function toggleMute() { Sound.toggle(); $("btn-mute").style.opacity = Sound.muted ? 0.45 : 1; }
+$("ov-btn").addEventListener("click", () => { Sound.unlock(); primaryAction(); });
+$("btn-pause").addEventListener("click", () => { Sound.unlock(); togglePause(); });
+$("btn-mute").addEventListener("click", () => { Sound.unlock(); toggleMute(); });
+
+/* ================================ MAIN LOOP ================================= */
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2), W = CONFIG.world.w, H = CONFIG.world.h;
+  const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+  canvas.style.width = Math.floor(W * s) + "px"; canvas.style.height = Math.floor(H * s) + "px";
+  canvas.width = Math.round(W * s * dpr); canvas.height = Math.round(H * s * dpr);
+  ctx.setTransform(s * dpr, 0, 0, s * dpr, 0, 0);
+}
+window.addEventListener("resize", resize);
+window.addEventListener("orientationchange", resize);
+
+const STEP = 1 / 60;
+let last = 0, acc = 0;
+function frame(ts) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, ((ts - last) / 1000) || 0); last = ts; acc += dt;
+  for (let n = 0; acc >= STEP && n < 5; n++) { update(STEP); acc -= STEP; }
+  render();
+}
+resize(); syncHud(true); showOverlay(CONFIG.title, "Collect the glowing orbs. Avoid the red hazards.", "Play");
+$("btn-mute").style.opacity = Sound.muted ? 0.45 : 1;
+requestAnimationFrame(frame);
+window.game = { G, CONFIG, update, render, startGame, spawnOrb, spawnHazard };   // handy for debugging and tests
+</script>
+</body>
+</html>
