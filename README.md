@@ -169,6 +169,22 @@ prompts/qa-prompt.md       question-and-answer mode
 - **Web content is untrusted.** Pages, lessons and skills are treated as data; instructions inside them do not override your request. Creating a skill always asks for approval, even with `--auto`.
 - Axion has no telemetry. The only network calls are to OpenRouter, to the search providers and to the sites the model is asked to fetch.
 
+## introduction
+
+I'm 12, from Indonesia. I started learning to code at 11 by tinkering on my own.
+
+I built Axion Code in about a week on my Infinix phone (4GB RAM / 128GB). I don't have a laptop yet, so I use Termux.
+
+It was a bit challenging on a phone, but I kept going until it worked. I'm proud of how it turned out.
+
+What I usually use:
+- Python - for Axion Code and AI agents
+- Node.js - for backend servers for my apps
+- Kotlin / Flutter - for building Android apps
+- Lua - for Roblox games
+
+Axion Code is an autonomous coding agent that can write, check, and fix its own code. I made it to only need Python and Git, because that's what I had.
+
 ## Updating and uninstalling
 
 ```bash
