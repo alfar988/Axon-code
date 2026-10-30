@@ -6,7 +6,7 @@ from axion.tools.registry import TOOLS
 from axion.ui import bold, C_ACC, C_ERR, C_OK, C_VIO, C_WARN, clip, dim, err, faint, ok, out, paint, tw, warn
 
 
-RESULT_LINES = {"search_files": 6, "find_files": 5, "web_search": 6, "list_dir": 4, "read_file": 1}
+RESULT_LINES = {"search_files": 6, "find_files": 5, "web_search": 6, "list_dir": 4, "read_file": 1, "deep_research": 2, "recall": 4}
 
 
 TOOL_META = {
@@ -17,7 +17,8 @@ TOOL_META = {
     "run_shell": ("Bash", C_VIO), "manage_process": ("Proc", C_VIO), "web_fetch": ("Fetch", C_VIO),
     "web_search": ("Web", C_VIO), "review_website": ("Audit", C_VIO), "http_request": ("API", C_VIO),
     "install_skill": ("Skill+", C_VIO), "use_skill": ("Skill", C_VIO), "todo": ("Plan", C_ACC),
-    "ask_user": ("Ask", C_ACC),
+    "ask_user": ("Ask", C_ACC), "deep_research": ("Research", C_VIO), "package_info": ("Package", C_VIO),
+    "learn": ("Learn", C_ACC), "recall": ("Recall", C_ACC), "create_skill": ("Skill+", C_VIO),
 }
 
 
@@ -49,7 +50,15 @@ def tool_label(name, a, w):
     if name in ("search_files", "find_files"):
         return clip(g("pattern"), w)
     if name == "web_search":
-        return clip(g("query"), w)
+        return clip(g("query") + ((" · " + g("kind")) if g("kind") and g("kind") != "general" else ""), w)
+    if name == "deep_research":
+        return clip(g("question"), w)
+    if name == "package_info":
+        return clip(g("name"), w)
+    if name == "learn":
+        return clip(g("lesson"), w)
+    if name in ("recall", "create_skill"):
+        return clip(g("query") or g("name"), w)
     if name == "use_skill":
         return clip(g("name") + (" part %s" % a["part"] if a.get("part") else ""), w)
     if name == "use_template":

@@ -12,7 +12,8 @@ TOOL_NAME_ALIASES = {
     "terminal": "run_shell", "read": "read_file", "cat": "read_file", "ls": "list_dir", "list": "list_dir",
     "grep": "search_files", "search": "search_files", "find": "find_files", "glob": "find_files",
     "write": "write_file", "create_file": "write_file", "edit": "edit_file", "str_replace": "edit_file",
-    "replace": "edit_file", "fetch": "web_fetch", "browse": "web_fetch", "websearch": "web_search",
+    "replace": "edit_file", "fetch": "web_fetch", "browse": "web_fetch", "websearch": "web_search", "research": "deep_research",
+    "remember": "learn", "package": "package_info", "pkg_info": "package_info",
     "todowrite": "todo", "todo_write": "todo", "mkdir": "make_dir", "mv": "move_path", "rename": "move_path",
     "cp": "copy_path", "rm": "delete_path", "delete": "delete_path", "unzip": "extract_archive", "zip": "create_archive",
 }
@@ -32,7 +33,12 @@ ARG_ALIASES = {
     "delete_path": {"file": "path", "target": "path"},
     "todo": {"todos": "items", "tasks": "items"},
     "web_fetch": {"link": "url", "uri": "url"},
-    "web_search": {"q": "query", "search": "query", "keywords": "query"},
+    "web_search": {"q": "query", "search": "query", "keywords": "query", "type": "kind", "count": "max_results", "limit": "max_results",
+                   "freshness": "time_range"},
+    "deep_research": {"query": "question", "q": "question", "topic": "question", "sources": "max_sources"},
+    "package_info": {"package": "name", "pkg": "name", "library": "name", "registry": "ecosystem"},
+    "learn": {"text": "lesson", "note": "lesson", "content": "lesson", "memory": "lesson"},
+    "create_skill": {"title": "name", "text": "content", "body": "content", "skill": "content"},
     "search_files": {"regex": "pattern", "query": "pattern", "text": "pattern", "dir": "path"},
     "find_files": {"glob": "pattern", "name": "pattern"},
 }

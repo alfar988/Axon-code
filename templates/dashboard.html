@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<!--
+  TEMPLATE dashboard: a single-file analytics dashboard. KPI cards with change versus the previous period, a line chart and a bar chart
+  drawn as inline SVG (hover tooltip, text alternative), a sortable, filterable, paginated table, CSV export, light and dark themes.
+  Data flow: loadData() -> state -> compute (kpis, series, rows) -> render. To use real data replace makeOrders() with a fetch()
+  to your API and keep the shape {id, date, customer, channel, amount (cents), status}. Edit the places marked EDIT.
+-->
+<html lang="__LANG__">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>__TITLE__</title>
+<meta name="theme-color" content="#f5f6f8">
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #ffffff; --ink: #1b1f24; --muted: #5a626c; --line: #dde1e6; --accent: __ACCENT__; --accent-ink: #ffffff;
+    --good: #14683d; --bad: #a82a22; --radius: 12px; --shadow: 0 1px 2px rgba(15,20,25,.06), 0 6px 18px rgba(15,20,25,.07);
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #111418; --surface: #1a1f25; --ink: #eceff3; --muted: #a0a9b4; --line: #2b323a; --good: #5fd08b; --bad: #ff8a80; }
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); line-height: 1.5; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+  .wrap { width: min(100%, 1120px); margin-inline: auto; padding: 18px 16px 56px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+  h1 { font-size: 1.4rem; margin: 0; letter-spacing: -.01em; }
+  h2 { font-size: 1rem; margin: 0 0 10px; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  label.inline { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: .9rem; }
+  select, input[type="search"] { font: inherit; color: inherit; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 12px; }
+  select:hover, input:hover { border-color: var(--muted); }
+  .btn { min-height: 44px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 600 .95rem var(--font); cursor: pointer; }
+  .btn:hover { border-color: var(--accent); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .kpis { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 14px; }
+  @media (min-width: 900px) { .kpis { grid-template-columns: repeat(4, 1fr); } }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); min-width: 0; }
+  .kpi .label { color: var(--muted); font-size: .85rem; }
+  .kpi .value { font-size: 1.55rem; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .delta { font-size: .85rem; font-weight: 600; }
+  .delta.up { color: var(--good); } .delta.down { color: var(--bad); } .delta.flat { color: var(--muted); }
+  .charts { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 14px; }
+  @media (min-width: 900px) { .charts { grid-template-columns: 3fr 2fr; } }
+  .chart { position: relative; }
+  svg.plot { width: 100%; height: auto; display: block; touch-action: pan-y; }
+  .plot .grid line { stroke: var(--line); stroke-width: 1; }
+  .plot text { fill: var(--muted); font-size: 12px; font-family: var(--font); }
+  .plot .area { fill: var(--accent); opacity: .12; }
+  .plot .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+  .plot .dot { fill: var(--surface); stroke: var(--accent); stroke-width: 2.5; }
+  .plot .bar { fill: var(--accent); transition: width .4s ease; }
+  .plot .barbg { fill: var(--line); opacity: .5; }
+  #tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); padding: 6px 10px; border-radius: 8px; font-size: .8rem; white-space: nowrap; transform: translate(-50%, -120%); }
+  #tip[hidden] { display: none; }
+  details.data { margin-top: 8px; color: var(--muted); font-size: .85rem; }
+  details.data summary { cursor: pointer; min-height: 32px; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: .92rem; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th button { all: unset; cursor: pointer; font-weight: 700; display: inline-flex; gap: 6px; align-items: center; min-height: 32px; }
+  th button:focus-visible { outline: 3px solid var(--accent); border-radius: 6px; }
+  th[aria-sort="ascending"] button::after { content: "\2191"; } th[aria-sort="descending"] button::after { content: "\2193"; }
+  td.num, th.num { text-align: right; }
+  .chip { display: inline-block; padding: 1px 10px; border-radius: 999px; border: 1px solid var(--line); font-size: .78rem; font-weight: 650; }
+  .chip.Paid { color: var(--good); border-color: var(--good); } .chip.Refunded { color: var(--bad); border-color: var(--bad); }
+  .table-tools { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; margin-bottom: 10px; }
+  .pager { display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 10px; color: var(--muted); font-size: .9rem; }
+  .empty { text-align: center; color: var(--muted); padding: 32px 12px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>__TITLE__</h1>
+    <div class="tools">
+      <label class="inline" for="range">Period
+        <select id="range"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select>
+      </label>
+      <button class="btn primary" id="export" type="button">Export CSV</button>
+    </div>
+  </header>
+  <p class="sr" id="live" role="status" aria-live="polite"></p>
+
+  <section class="kpis" id="kpis" aria-label="Key figures"></section>
+
+  <section class="charts">
+    <div class="card chart">
+      <h2>Revenue per day</h2>
+      <svg class="plot" id="line" viewBox="0 0 640 260" role="img" aria-label="Revenue per day"></svg>
+      <div id="tip" hidden></div>
+      <details class="data"><summary>Show chart data as a table</summary><div class="scroll"><table id="line-data"></table></div></details>
+    </div>
+    <div class="card">
+      <h2>Revenue by channel</h2>
+      <svg class="plot" id="bars" viewBox="0 0 400 260" role="img" aria-label="Revenue by channel"></svg>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Orders</h2>
+    <div class="table-tools">
+      <label class="sr" for="q">Search orders</label>
+      <input id="q" type="search" placeholder="Search customer or order" autocomplete="off">
+      <label class="inline" for="status">Status
+        <select id="status"><option value="all">All</option><option>Paid</option><option>Pending</option><option>Refunded</option></select>
+      </label>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr id="head"></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="empty" hidden>No orders match these filters.</p>
+    <div class="pager">
+      <span id="page-info"></span>
+      <button class="btn" id="prev" type="button">Previous</button>
+      <button class="btn" id="next" type="button">Next</button>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+(() => {
+  // ---------- EDIT: configuration and data ----------
+  const CURRENCY = "USD";
+  const CHANNELS = ["Search", "Direct", "Email", "Social", "Referral"];
+  const STATUSES = ["Paid", "Pending", "Refunded"];
+  const COLUMNS = [["id", "Order"], ["date", "Date"], ["customer", "Customer"], ["channel", "Channel"], ["amount", "Amount", true], ["status", "Status"]];
+  const NAMES = ["Ada Stone", "Ben Okoye", "Chen Wei", "Dara Novak", "Eli Haddad", "Farah Khan", "Gus Lind", "Hana Mori", "Ivo Petrov", "Jun Park", "Kira Lang", "Leo Costa"];
+  const PAGE_SIZE = 10;
+
+  function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+  const DAY = 86400000;
+  const isoDay = (t) => new Date(t).toISOString().slice(0, 10);
+
+  /** Sample data. Replace with: const orders = await (await fetch("/api/orders")).json(); */
+  function makeOrders(days) {
+    const rand = rng(7), end = Date.UTC(2026, 2, 1), out = [];
+    for (let d = days * 2 - 1; d >= 0; d--) {
+      const n = 4 + Math.floor(rand() * 9) + (d % 7 === 0 ? 4 : 0);
+      for (let i = 0; i < n; i++) {
+        out.push({ id: "A" + String(1000 + out.length), date: isoDay(end - d * DAY), customer: NAMES[Math.floor(rand() * NAMES.length)],
+                   channel: CHANNELS[Math.floor(rand() * CHANNELS.length)], amount: 1500 + Math.floor(rand() * 18000), status: STATUSES[rand() < .82 ? 0 : rand() < .6 ? 1 : 2] });
+      }
+    }
+    return out;
+  }
+  const ALL = makeOrders(90);
+
+  // ---------- state ----------
+  const state = { days: 30, sort: { key: "date", dir: -1 }, q: "", status: "all", page: 1 };
+  try { const d = Number(localStorage.getItem("dash.days")); if ([7, 30, 90].includes(d)) state.days = d; } catch (e) { /* storage blocked */ }
+
+  // ---------- helpers ----------
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const money = (cents) => new Intl.NumberFormat(undefined, { style: "currency", currency: CURRENCY, maximumFractionDigits: 0 }).format(cents / 100);
+  const int = (n) => new Intl.NumberFormat().format(n);
+  const shortDate = (iso) => new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(iso + "T00:00:00Z"));
+
+  // ---------- compute ----------
+  function period(offset) {            // orders inside the selected window; offset 1 = the window before it
+    const end = isoDay(Date.UTC(2026, 2, 1) - offset * state.days * DAY), start = isoDay(Date.UTC(2026, 2, 1) - ((offset + 1) * state.days - 1) * DAY);
+    return ALL.filter((o) => o.date >= start && o.date <= end);
+  }
+  const paid = (rows) => rows.filter((o) => o.status === "Paid");
+  function kpis() {
+    const cur = period(0), prev = period(1);
+    const rev = (r) => paid(r).reduce((s, o) => s + o.amount, 0), uniq = (r) => new Set(r.map((o) => o.customer)).size;
+    const aov = (r) => (paid(r).length ? rev(r) / paid(r).length : 0), conv = (r) => (r.length ? paid(r).length / r.length : 0);
+    return [
+      { label: "Revenue", value: money(rev(cur)), now: rev(cur), before: rev(prev) },
+      { label: "Orders", value: int(cur.length), now: cur.length, before: prev.length },
+      { label: "Customers", value: int(uniq(cur)), now: uniq(cur), before: uniq(prev) },
+      { label: "Average order", value: money(aov(cur)), now: aov(cur), before: aov(prev) },
+    ].map((k) => Object.assign(k, { change: k.before ? (k.now - k.before) / k.before : 0 }));
+  }
+  function series() {
+    const by = {};
+    period(0).forEach((o) => { if (o.status === "Paid") by[o.date] = (by[o.date] || 0) + o.amount; });
+    const out = [];
+    for (let d = state.days - 1; d >= 0; d--) { const day = isoDay(Date.UTC(2026, 2, 1) - d * DAY); out.push({ day, value: by[day] || 0 }); }
+    return out;
+  }
+  function byChannel() {
+    const by = {};
+    paid(period(0)).forEach((o) => { by[o.channel] = (by[o.channel] || 0) + o.amount; });
+    return CHANNELS.map((c) => ({ label: c, value: by[c] || 0 })).sort((a, b) => b.value - a.value);
+  }
+  function visibleRows() {
+    const q = state.q.trim().toLowerCase(), { key, dir } = state.sort;
+    return period(0).filter((o) => (state.status === "all" || o.status === state.status) && (!q || o.customer.toLowerCase().includes(q) || o.id.toLowerCase().includes(q)))
+      .sort((a, b) => (a[key] < b[key] ? -1 : a[key] > b[key] ? 1 : 0) * dir || (a.id < b.id ? 1 : -1));
+  }
+  function toCSV(rows) {
+    const cell = (v) => (/[",\n]/.test(String(v)) ? '"' + String(v).replace(/"/g, '""') + '"' : String(v));
+    return [COLUMNS.map((c) => c[1]).join(",")].concat(rows.map((o) => COLUMNS.map((c) => cell(c[0] === "amount" ? (o.amount / 100).toFixed(2) : o[c[0]])).join(","))).join("\n");
+  }
+
+  // ---------- render ----------
+  function renderKpis() {
+    $("kpis").innerHTML = kpis().map((k) => {
+      const pct = Math.round(k.change * 1000) / 10, cls = pct > 0.5 ? "up" : pct < -0.5 ? "down" : "flat";
+      return '<div class="card kpi"><div class="label">' + esc(k.label) + '</div><div class="value">' + esc(k.value) + '</div><div class="delta ' + cls + '">'
+        + (cls === "up" ? "\u25B2 " : cls === "down" ? "\u25BC " : "\u25AC ") + Math.abs(pct) + '% vs previous ' + state.days + ' days</div></div>';
+    }).join("");
+  }
+  function renderLine() {
+    const data = series(), W = 640, H = 260, L = 52, R = 12, T = 12, B = 28, max = Math.max(1, ...data.map((d) => d.value)) * 1.1;
+    const x = (i) => L + (data.length > 1 ? (i / (data.length - 1)) * (W - L - R) : 0), y = (v) => T + (1 - v / max) * (H - T - B);
+    const pts = data.map((d, i) => x(i).toFixed(1) + "," + y(d.value).toFixed(1));
+    let g = "";
+    for (let i = 0; i <= 4; i++) { const v = (max / 4) * i, yy = y(v).toFixed(1); g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + yy + '" y2="' + yy + '"/><text x="' + (L - 8) + '" y="' + (Number(yy) + 4) + '" text-anchor="end">' + esc(money(v).replace(/\.00$/, "")) + "</text>"; }
+    const labels = [0, Math.floor((data.length - 1) / 2), data.length - 1].map((i, n) => '<text x="' + x(i).toFixed(1) + '" y="' + (H - 8) + '" text-anchor="' + (n === 0 ? "start" : n === 2 ? "end" : "middle") + '">' + esc(shortDate(data[i].day)) + "</text>").join("");
+    $("line").innerHTML = '<g class="grid">' + g + "</g>" + labels + '<polygon class="area" points="' + L + "," + y(0) + " " + pts.join(" ") + " " + x(data.length - 1) + "," + y(0) + '"/><polyline class="line" points="' + pts.join(" ") + '"/><circle class="dot" id="dot" r="5" cx="-20" cy="-20"/>';
+    $("line").setAttribute("aria-label", "Revenue per day over " + state.days + " days, from " + money(Math.min(...data.map((d) => d.value))) + " to " + money(max / 1.1));
+    $("line-data").innerHTML = "<thead><tr><th>Day</th><th class='num'>Revenue</th></tr></thead><tbody>" + data.map((d) => "<tr><td>" + esc(d.day) + "</td><td class='num'>" + esc(money(d.value)) + "</td></tr>").join("") + "</tbody>";
+    renderLine.geom = { data, x, y, W };
+  }
+  function tipAt(clientX) {
+    const geo = renderLine.geom, box = $("line").getBoundingClientRect();
+    if (!geo || !box.width) return;
+    const vx = ((clientX - box.left) / box.width) * geo.W;
+    let best = 0;
+    geo.data.forEach((d, i) => { if (Math.abs(geo.x(i) - vx) < Math.abs(geo.x(best) - vx)) best = i; });
+    const d = geo.data[best], dot = $("dot"), tip = $("tip");
+    dot.setAttribute("cx", geo.x(best)); dot.setAttribute("cy", geo.y(d.value));
+    tip.hidden = false; tip.textContent = shortDate(d.day) + ": " + money(d.value);
+    tip.style.left = (geo.x(best) / geo.W) * 100 + "%"; tip.style.top = (geo.y(d.value) / 260) * box.height + 38 + "px";
+  }
+  function renderBars() {
+    const rows = byChannel(), max = Math.max(1, ...rows.map((r) => r.value)), L = 84, W = 400, row = 44;
+    $("bars").innerHTML = rows.map((r, i) => {
+      const yy = 10 + i * row, w = Math.round(((W - L - 70) * r.value) / max);
+      return '<text x="0" y="' + (yy + 19) + '">' + esc(r.label) + '</text><rect class="barbg" x="' + L + '" y="' + yy + '" width="' + (W - L - 70) + '" height="26" rx="6"/><rect class="bar" x="' + L + '" y="' + yy + '" width="' + w + '" height="26" rx="6"/><text x="' + (W - 64) + '" y="' + (yy + 19) + '">' + esc(money(r.value)) + "</text>";
+    }).join("");
+    $("bars").setAttribute("aria-label", "Revenue by channel: " + rows.map((r) => r.label + " " + money(r.value)).join(", "));
+  }
+  function renderTable() {
+    const rows = visibleRows(), pages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+    state.page = Math.min(state.page, pages);
+    $("head").innerHTML = COLUMNS.map((c) => '<th scope="col" class="' + (c[2] ? "num" : "") + '" aria-sort="' + (state.sort.key === c[0] ? (state.sort.dir > 0 ? "ascending" : "descending") : "none") + '"><button type="button" data-sort="' + c[0] + '">' + esc(c[1]) + "</button></th>").join("");
+    $("rows").innerHTML = rows.slice((state.page - 1) * PAGE_SIZE, state.page * PAGE_SIZE).map((o) => "<tr><td>" + esc(o.id) + "</td><td>" + esc(o.date) + "</td><td>" + esc(o.customer) + "</td><td>" + esc(o.channel)
+      + '</td><td class="num">' + esc(money(o.amount)) + '</td><td><span class="chip ' + esc(o.status) + '">' + esc(o.status) + "</span></td></tr>").join("");
+    $("empty").hidden = rows.length > 0;
+    $("page-info").textContent = rows.length ? "Page " + state.page + " of " + pages + " (" + int(rows.length) + " orders)" : "";
+    $("prev").disabled = state.page <= 1; $("next").disabled = state.page >= pages;
+    $("live").textContent = int(rows.length) + " orders shown";
+  }
+  function render() { renderKpis(); renderLine(); renderBars(); renderTable(); }
+
+  // ---------- events ----------
+  function setRange(days) { state.days = days; state.page = 1; try { localStorage.setItem("dash.days", String(days)); } catch (e) { /* ignore */ } render(); }
+  function setSort(key) { state.sort = { key, dir: state.sort.key === key ? -state.sort.dir : (key === "amount" || key === "date" ? -1 : 1) }; state.page = 1; renderTable(); }
+  function setFilter(q, status) { state.q = q; state.status = status; state.page = 1; renderTable(); }
+  function download() {
+    try {
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([toCSV(visibleRows())], { type: "text/csv" }));
+      a.download = "orders.csv"; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    } catch (e) { $("live").textContent = "Export is not available in this browser."; }
+  }
+
+  $("range").value = String(state.days);
+  $("range").addEventListener("change", (e) => setRange(Number(e.target.value)));
+  $("q").addEventListener("input", (e) => setFilter(e.target.value, state.status));
+  $("status").addEventListener("change", (e) => setFilter(state.q, e.target.value));
+  $("head").addEventListener("click", (e) => { const b = e.target.closest && e.target.closest("[data-sort]"); if (b) setSort(b.dataset.sort); });
+  $("prev").addEventListener("click", () => { state.page = Math.max(1, state.page - 1); renderTable(); });
+  $("next").addEventListener("click", () => { state.page += 1; renderTable(); });
+  $("export").addEventListener("click", download);
+  $("line").addEventListener("pointermove", (e) => tipAt(e.clientX));
+  $("line").addEventListener("pointerleave", () => { $("tip").hidden = true; });
+
+  window.app = { state, setRange, setSort, setFilter, visibleRows, kpis, series, byChannel, toCSV, render };
+  render();
+})();
+</script>
+</body>
+</html>

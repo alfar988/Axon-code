@@ -134,11 +134,13 @@ class Templates(unittest.TestCase):
             for k, v in m["vars"].items():
                 text = text.replace("__%s__" % k, v)
             self.assertNotRegex(text, r"__[A-Z]{3,}__", name)
-            self.assertGreaterEqual(ui_score(ui_review(text, "", name)), 85, name)
+            if m["file"].endswith(".html"):
+                self.assertGreaterEqual(ui_score(ui_review(text, "", name)), 85, name)
 
     @unittest.skipUnless(shutil.which("node"), "node is not installed")
     def test_templates_run_in_the_node_harness(self):
-        for name in ("game-2d", "game-3d", "web-app", "web-landing"):
+        man = json.loads((ROOT / "templates" / "manifest.json").read_text(encoding="utf-8"))["templates"]
+        for name in [k for k, v in man.items() if v["file"].endswith(".html")]:
             r = subprocess.run(["node", str(ROOT / "tests" / "dom_harness.js"), str(ROOT / "templates" / (name + ".html"))],
                                capture_output=True, text=True, timeout=120)
             self.assertEqual(r.returncode, 0, name + "\n" + r.stdout[-800:] + r.stderr[-400:])

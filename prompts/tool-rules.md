@@ -6,6 +6,8 @@
 - Paths are relative to the workspace unless the user gave an absolute path.
 - Independent calls go in the same response; dependent calls (write, then verify) go in order.
 - Do not re-read a file you just wrote and do not call a tool whose result you already have.
+- Several searches or page reads that do not depend on each other go in ONE response; they run in parallel.
+- Search queries are short keyword phrases, not sentences. If a search returns nothing useful, change the words or the `kind`; do not repeat the same query.
 
 ## Writing files (the most common source of errors)
 - Your output limit is finite. NEVER put more than <<CHUNK_LINES>> lines (about <<CHUNK_CHARS>> characters) in the `content` of one write_file or append_file call: a cut-off call is lost completely.

@@ -217,7 +217,7 @@ def stream_chat(ctx, model, messages, tools, on_text, on_status=None, retries=1,
     if tools:
         body["tools"] = tools
     headers = {"Authorization": "Bearer " + key_of(ctx), "Content-Type": "application/json", "X-Title": "Axion Code",
-               "User-Agent": UA, "HTTP-Referer": "https://github.com/alfar988/Axion-code"}
+               "User-Agent": UA, "HTTP-Referer": "https://github.com/alfar988/Axon-code"}
     stall = int(ctx.cfg.get("stall_secs", STALL_DEFAULT))
     maxs = int(ctx.cfg.get("max_request_secs", MAXREQ_DEFAULT))
     delays = [3, 8, 20, 35]

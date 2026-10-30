@@ -6,6 +6,7 @@ import re
 from datetime import datetime
 
 from axion.config import APP_DIR, BUNDLED_SKILLS_DIR, PROMPTS_DIR, TEMPLATES_DIR
+from axion.knowledge import lessons_block
 from axion.memory import handoff_text, plan_markdown, read_notes_text
 from axion.skills import catalog_text, render_active_skills
 from axion.templates import template_catalog
@@ -34,7 +35,7 @@ def access_label(ctx):
 _PROMPT_CACHE = {}
 
 FALLBACK_SYSTEM = (
-    "You are Axion Code, a senior software engineer working autonomously in the user's terminal (<<ENV>>). "
+    "You are Axion Code, a coding agent working in the user's terminal (<<ENV>>). "
     "Finish tasks end-to-end with tools; never only describe what you could do.\n"
     "Workspace: <<WORKSPACE>> | OS: <<OS>> | Python <<PYTHON>> | Date: <<DATE>> | File access: <<ACCESS>>\n"
     "Call tools through native tool-calling with valid JSON. Write files in parts of at most <<CHUNK_LINES>> lines "
@@ -103,6 +104,9 @@ def build_system(ctx, phase="build"):
     notes = read_notes_text(ctx, 3500)
     if notes:
         parts.append("## Saved notes and research (history/notes.md)\n" + notes)
+    lessons = lessons_block(ctx)
+    if lessons:
+        parts.append(lessons)
     if ctx.handoff:
         parts.append("## HANDOFF: you are taking over interrupted work\n" + handoff_text(ctx, "model switch / recovery")[:7000])
     skills = render_active_skills(ctx, ctx.active_skills, skill_budget(ctx, phase))

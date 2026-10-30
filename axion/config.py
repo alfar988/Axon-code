@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 
 API_BASE = (os.environ.get("AXION_API_BASE") or os.environ.get("AXON_API_BASE") or "https://openrouter.ai/api/v1").rstrip("/")
@@ -37,10 +37,10 @@ BG_DIR = HOME_DIR / "bg"
 HISTORY_FILE = HOME_DIR / "input_history"
 
 
-UA = "Mozilla/5.0 (Linux; Android 13; Termux) AxionCode/" + VERSION
+UA = "Mozilla/5.0 (compatible; AxionCode/%s; +https://github.com/alfar988/Axon-code)" % VERSION
 
 
-MAX_STEPS = 40             # max steps (requests) per user message
+MAX_STEPS = 60             # max steps (requests) per user message
 
 
 MAX_TOOL_OUTPUT = 14000    # max characters of a tool result sent to the model
@@ -69,10 +69,11 @@ PLAN_MAX_STEPS = 10
 
 
 READ_TOOLS = {"list_dir", "read_file", "search_files", "find_files", "project_overview", "read_notes", "save_note",
-              "use_skill", "web_search", "web_fetch", "review_website", "verify_files", "system_info"}
+              "use_skill", "web_search", "web_fetch", "review_website", "verify_files", "system_info",
+              "deep_research", "package_info", "learn", "recall"}
 
 
-WEB_TOOLS = {"web_search", "web_fetch", "review_website"}
+WEB_TOOLS = {"web_search", "web_fetch", "review_website", "deep_research", "package_info"}
 
 
 PLAN_TOOLS = READ_TOOLS | {"submit_plan", "ask_user", "todo"}

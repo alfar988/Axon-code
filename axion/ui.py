@@ -396,10 +396,6 @@ class MdStream:
 
 
 # --- extra UI components (Axion Code) ---------------------------------------
-LOGO = ("▄▀█ ▀▄▀ █ █▀█ █▄ █",
-        "█▀█ █ █ █ █▄█ █ ▀█")
-
-
 def rule(label="", col=None):
     w = min(tw(), 64) - 2
     if label:
@@ -455,18 +451,3 @@ def fit_path(p, n):
 def short_model(m):
     return str(m).split("/")[-1].replace(":free", "")
 
-
-LOGO_GRADIENT = (80, 79, 74, 73, 68, 69, 63)
-
-
-def gradient(text, stops=LOGO_GRADIENT):
-    """Color a string left to right through 256-color stops (plain text when colors are off)."""
-    if not any(ch != " " for ch in text):
-        return text
-    n, res = max(len(text) - 1, 1), []
-    for i, ch in enumerate(text):
-        if ch == " ":
-            res.append(ch)
-        else:
-            res.append(paint(ch, 1, 38, 5, stops[min(len(stops) - 1, i * len(stops) // (n + 1))]))
-    return "".join(res)

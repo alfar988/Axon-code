@@ -60,6 +60,8 @@ def t_use_template(a, ctx):
     is_html = m["file"].lower().endswith((".html", ".htm"))
     if is_html:
         vals = {k: (v if k.endswith("_RAW") or k in ("ACCENT", "LANG") else html.escape(v, quote=True)) for k, v in vals.items()}
+    elif m["file"].lower().endswith((".py", ".js", ".mjs", ".ts")):             # values may land inside string literals
+        vals = {k: (v if k.endswith("_RAW") else json.dumps(v, ensure_ascii=False)[1:-1]) for k, v in vals.items()}
     text = _TPL_VAR_RX.sub(lambda mo: vals.get(mo.group(1), mo.group(0)), text)
     dest = a.get("path") or m.get("default_path") or m["file"]
     res = t_write_file({"path": dest, "content": text}, ctx)

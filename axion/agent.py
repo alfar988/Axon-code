@@ -8,6 +8,7 @@ import subprocess
 import sys
 import textwrap
 import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from axion.client import err_reason, stream_chat
@@ -15,6 +16,7 @@ from axion.config import (
     CHAT_TOOLS, MAX_ROT_PER_TURN, MAX_STEPS, PLAN_MAX_STEPS, PLAN_TOOLS, SNAP_IGNORE, WEB_TOOLS,
 )
 from axion.diagnose import first_error_line, is_failure
+from axion.knowledge import reflection_message
 from axion.memory import hist_dir, log_event, save_history
 from axion.models import (
     candidate_models, est_tokens, guard_context, local_compact, mark_cooldown, note_model,
@@ -209,7 +211,8 @@ def trim_plan_messages(ctx, start):
             names[tc["id"]] = tc["function"]["name"]
     for m in ctx.messages[start:]:
         if m.get("role") == "tool" and names.get(m.get("tool_call_id")) in (
-                "web_search", "web_fetch", "review_website", "read_file", "search_files", "project_overview", "list_dir"):
+                "web_search", "web_fetch", "review_website", "read_file", "search_files", "project_overview", "list_dir",
+                "deep_research", "package_info"):
             c = m.get("content") or ""
             if len(c) > 700:
                 m["content"] = c[:500] + "\n…[research summary is in history/notes.md and the plan]"
@@ -481,12 +484,18 @@ def run_agent(ctx, phase, allowed, max_steps, stop_tool=None):
                                          "and working? Any bugs or missing logic? If something is lacking, fix it NOW with tools. If it is "
                                          "complete, reply with a short final summary: features, files, how to run it."})
                     continue
+                refl = reflection_message(ctx)
+                if refl:
+                    out("  " + dim("↻ checking whether something is worth remembering…"))
+                    ctx.messages.append({"role": "user", "content": refl})
+                    continue
             save_history(ctx, "done")
             return "done"
         empty = 0
         if started[0]:
             out()
         stop, bad_round, n_ok, n_err = False, 0, 0, 0
+        prefetched = prefetch_web(ctx, calls, parsed_args, allowed, finish)
         for tc in calls:
             name = tc["function"]["name"]
             args, st = parsed_args.get(tc["id"], (None, "bad"))
@@ -517,7 +526,7 @@ def run_agent(ctx, phase, allowed, max_steps, stop_tool=None):
             ctx.turn["tools"] += 1
             tool_header(name, args)
             key = loop_key(name, args)
-            res = loop_check(ctx, key) or exec_tool(ctx, name, args)
+            res = loop_check(ctx, key) or prefetched.get(tc["id"]) or exec_tool(ctx, name, args)
             loop_record(ctx, key, res)
             if note:
                 res = res + "\n" + note
@@ -526,6 +535,7 @@ def run_agent(ctx, phase, allowed, max_steps, stop_tool=None):
                 n_err += 1
             else:
                 n_ok += 1
+            note_recovery(ctx, name, res, failed)
             if name in CHECK_TOOLS and (name != "run_shell" or is_check_command(args.get("command", ""))):
                 if failed:
                     ctx.turn["issue"] = {"tool": name, "summary": first_error_line(res)}
@@ -634,6 +644,45 @@ _PROBE_RX = re.compile(r"^\s*(ls|cat|head|tail|grep|find|which|echo|test|pwd|cd|
 def is_check_command(cmd):
     """Only build/run/test commands count as 'checks'; exploratory commands (grep, ls, ...) may fail without being a problem."""
     return bool(_CHECK_CMD_RX.search(cmd or "")) and not _PROBE_RX.search(cmd or "")
+
+
+PARALLEL_TOOLS = ("web_search", "web_fetch", "package_info")      # read-only network calls that are safe to run side by side
+RECOVERY_TOOLS = ("run_shell", "run_python", "verify_files")       # a failure of these that is later fixed may be worth remembering
+
+
+def prefetch_web(ctx, calls, parsed_args, allowed, finish):
+    """Run independent web lookups of one model response at the same time. Returns {tool_call_id: result}.
+
+    Results are shown in the model's order afterwards; nothing here prints, so the terminal output stays tidy."""
+    todo = []
+    for tc in calls:
+        name = tc["function"]["name"]
+        args, st = parsed_args.get(tc["id"], (None, "bad"))
+        if name not in PARALLEL_TOOLS or name not in allowed or args is None or st == "truncated" or finish == "length":
+            continue
+        args = fix_args(name, args)
+        if loop_check(ctx, loop_key(name, args)):
+            continue
+        todo.append((tc["id"], name, args))
+    if len(todo) < 2:
+        return {}
+    out("  " + dim("· running %d web lookups in parallel" % len(todo)))
+    with ThreadPoolExecutor(max_workers=min(5, len(todo))) as pool:
+        futs = [(i, pool.submit(exec_tool, ctx, n, a)) for i, n, a in todo]
+        return {i: f.result() for i, f in futs}
+
+
+def note_recovery(ctx, name, res, failed):
+    """Remember failures of build/run/check tools; when the same tool succeeds later in the turn, the pair is a candidate lesson."""
+    if name not in RECOVERY_TOOLS:
+        return
+    pend = ctx.turn.setdefault("pending_fail", {})
+    if failed:
+        line = first_error_line(res)
+        if len(line) >= 12:
+            pend[name] = line
+    elif name in pend:
+        ctx.turn.setdefault("recovered", []).append("%s: %s" % (name, pend.pop(name)))
 
 
 def loop_key(name, args):

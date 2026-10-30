@@ -77,6 +77,136 @@
     "Add keyboard shortcuts and accessible announcements for every new action, and persist the new fields with a bumped storage version.",
     "Handle errors visibly (invalid input, failed save) with clear messages."
    ]
+  },
+  "dashboard": {
+   "file": "dashboard.html",
+   "default_path": "index.html",
+   "desc": "analytics dashboard (KPI cards with change vs previous period, inline-SVG line and bar charts with tooltip and text alternative, sortable/filterable/paginated table, CSV export, light and dark themes)",
+   "vars": {
+    "TITLE": "Sales dashboard",
+    "ACCENT": "#1b6e50",
+    "LANG": "en"
+   },
+   "guide": "Keep the data flow (data -> state -> compute -> render), the SVG chart helpers and the accessibility. Replace the data source, the metrics and the labels.",
+   "min_novelty": 0.35,
+   "customize": [
+    "Model the real domain: change the record fields, metric definitions, labels, currency and sample data to fit the request (or fetch() the user's API in place of makeOrders()).",
+    "Add at least two things the template does not have (a second chart type, a date-range picker, a comparison toggle, drill-down from a bar to the table, saved filters, a goal line).",
+    "Give it its own look: palette beyond one accent, type scale, card style and density; keep contrast and the 44px touch targets."
+   ]
+  },
+  "docs-site": {
+   "file": "docs-site.html",
+   "default_path": "index.html",
+   "desc": "documentation or knowledge-base site (sidebar, safe markdown renderer, search, table of contents with scroll spy, hash routing, copy buttons, themes, print styles)",
+   "vars": {
+    "TITLE": "Project documentation",
+    "ACCENT": "#1b6e50",
+    "LANG": "en"
+   },
+   "guide": "Keep the md() renderer (it escapes first), the router and the search. Replace the DOCS content, the identity and the layout.",
+   "min_novelty": 0.4,
+   "customize": [
+    "Write the real pages for the user's subject in the DOCS array: accurate, specific, with runnable code examples (no lorem ipsum, no placeholder pages).",
+    "Extend the renderer if the content needs it (tables, images with alt text, callouts) and keep every inserted string escaped.",
+    "Give it its own identity: brand colors, type pairing, header and sidebar style, a landing page with the main entry points."
+   ]
+  },
+  "api-python": {
+   "file": "api-python.py",
+   "default_path": "api.py",
+   "desc": "JSON REST API with the standard library and SQLite (migrations, validation, pagination, search, CORS, optional API key, graceful shutdown, built-in --selftest)",
+   "vars": {
+    "TITLE": "Items API",
+    "PORT": "8000"
+   },
+   "guide": "Keep the Handler, routing, error format and migrations. Replace the resource: schema, validate(), row(), Store and the routes. Run `python api.py --selftest` after every change.",
+   "min_novelty": 0.25,
+   "customize": [
+    "Rename the resource and fields to the user's domain (schema in MIGRATIONS, validate(), row(), Store methods, routes) and update the --selftest checks to match.",
+    "Add at least two real features (a second related table with a foreign key, filtering and sorting parameters, authentication per user, rate limiting, export).",
+    "Keep: parameterized SQL, input validation, one error format, request size limit. Document the routes in the file header."
+   ]
+  },
+  "api-node": {
+   "file": "api-node.js",
+   "default_path": "api.js",
+   "desc": "zero-dependency Node 18+ JSON REST API (JSON file store with atomic writes, validation, pagination, CORS, optional API key, built-in --selftest)",
+   "vars": {
+    "TITLE": "Items API",
+    "PORT": "8000"
+   },
+   "guide": "Keep the router, error handling and Store. Replace the resource: validate(), the routes and the fields. Run `node api.js --selftest` after every change.",
+   "min_novelty": 0.25,
+   "customize": [
+    "Rename the resource and fields to the user's domain (validate(), routes, Store) and update the --selftest checks to match.",
+    "Add at least two real features (a related collection, filtering and sorting, per-user authentication, rate limiting, a SQLite store behind the same Store interface).",
+    "Keep: validation, one error format, body size limit, atomic saves. Document the routes in the file header."
+   ]
+  },
+  "cli-python": {
+   "file": "cli-python.py",
+   "default_path": "cli.py",
+   "desc": "command-line program with subcommands (argparse, exit codes, --json, stdin, atomic JSON storage, colors that respect NO_COLOR, embedded unit tests)",
+   "vars": {
+    "PROG": "tasks",
+    "TITLE": "A small task tracker for the terminal."
+   },
+   "guide": "Keep main(argv) returning an exit code, the error handling and the embedded tests. Replace the task domain, the subcommands and the output.",
+   "min_novelty": 0.25,
+   "customize": [
+    "Change the domain, fields and subcommands to what the user asked for, with help text and an example for each command.",
+    "Add at least two real features (search, edit, import, a config file, sorting, shell completion hints) and tests for them in run_tests().",
+    "Keep: one-line errors on stderr, exit codes, --json output, no tracebacks for expected problems."
+   ]
+  },
+  "bot-telegram": {
+   "file": "bot-telegram.py",
+   "default_path": "bot.py",
+   "desc": "Telegram bot with long polling (testable command router, inline buttons, SQLite state, offset persistence, allow-list, rate-limit handling, built-in --selftest with a fake Telegram server)",
+   "vars": {
+    "TITLE": "Notes bot"
+   },
+   "guide": "Keep Api, Router, Store and poll_once. Replace the commands and the stored data. Run `python bot.py --selftest` after every change; the token comes from TELEGRAM_TOKEN.",
+   "min_novelty": 0.25,
+   "customize": [
+    "Replace the note commands with the features the user asked for, each with a help line, and add self-test checks for them.",
+    "Add at least two real features (reminders, per-user settings, inline keyboards with state, admin-only commands, scheduled messages).",
+    "Keep: token from the environment, one bad update never stops the bot, messages split under the length limit."
+   ]
+  },
+  "scraper-python": {
+   "file": "scraper-python.py",
+   "default_path": "scraper.py",
+   "desc": "polite web scraper (robots.txt, delay with jitter, retries with backoff, disk cache, pagination, CSV/JSON/JSONL output, built-in --selftest against a local fake site)",
+   "vars": {
+    "TITLE": "Quotes scraper",
+    "START_URL": "https://quotes.toscrape.com/"
+   },
+   "guide": "Keep Fetcher (robots.txt, delay, retries, cache) and crawl(). Replace parse_page(), next_page(), the fields and USER_AGENT for the target site. Run `python scraper.py --selftest` after every change.",
+   "min_novelty": 0.25,
+   "customize": [
+    "Rewrite parse_page() and next_page() for the target site's markup (or its JSON endpoint) and set a real USER_AGENT with contact details.",
+    "Add at least two real features (several start URLs, de-duplication across runs, incremental updates, saving to SQLite, a --since filter) and extend the --selftest fake site to cover them.",
+    "Keep: robots.txt check, delay of one second or more, caching, a clear error when zero records are found."
+   ]
+  },
+  "game-puzzle": {
+   "file": "game-puzzle.html",
+   "default_path": "index.html",
+   "desc": "tile-merging puzzle on a grid (pure rules separate from drawing, swipe + keys + buttons, undo, best score per board size, 3x3 to 6x6, optional sound, reduced motion)",
+   "vars": {
+    "TITLE": "Merge Tiles",
+    "ACCENT": "#1b6e50",
+    "LANG": "en"
+   },
+   "guide": "Keep the grid state, history, input plumbing and the pure rule functions (slide, move, canMove). Replace the rules, the tile art and the theme.",
+   "min_novelty": 0.35,
+   "customize": [
+    "Change the puzzle to fit the request: new rules in slide()/move() (other merge conditions, obstacles, goals), a theme for the tiles (shapes, icons or symbols drawn with SVG or canvas paths instead of plain numbers) and matching colors.",
+    "Add at least two mechanics beyond the template (power-ups such as a shuffle or a remove-tile, levels with different goals and board layouts, a daily seed, combo scoring, a move limit).",
+    "Keep the pure functions testable and update the checks in tests/dom_harness.js style if you change their signatures; keep touch targets at 44px and the reduced-motion rule."
+   ]
   }
  }
 }

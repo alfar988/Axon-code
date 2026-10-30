@@ -1,88 +1,72 @@
-"""Web tools: fetch, search, website audit, HTTP requests."""
+"""Web tools: read pages, audit a website, call HTTP APIs. (Searching lives in axion/tools/research.py.)"""
 
 import json
 import re
-import urllib.error
 import urllib.parse
-import urllib.request
-from html import unescape
+from concurrent.futures import ThreadPoolExecutor
 
 from axion.state import ask, expand_secrets, ToolError
-from axion.tools.registry import B, I, S, tool
+from axion.tools.registry import B, I, L, S, tool
 from axion.ui import clip, tw
 from axion.util import cap, denied, human_size, to_int
 from axion.webutil import decode_body, http_fetch, norm_url, page_text_of, PageParser
 
 
-# --- tool: web --------------------------------------------------------------
-@tool("web_fetch", "Fetch a web page or URL and convert it to clean text (title, headings, body, links).",
-      {"url": S("URL"), "max_chars": I("character limit, default 12000"),
-       "raw": B("true = return the raw body (HTML/JSON/code)")}, ["url"])
-def t_web_fetch(a, ctx):
-    url = norm_url(a.get("url"))
-    limit = max(1000, min(to_int(a.get("max_chars"), 12000), 40000))
+def fetch_one(url, limit, raw=False):
+    """Read one URL and return the text the model sees. Raises ToolError only when the page cannot be reached."""
+    url = norm_url(url)
     info = http_fetch("GET", url)
     ct = info["headers"].get("content-type", "")
-    body = decode_body(info)
     head = "[HTTP %s · %s · %d ms · %s]\n" % (info["status"], ct.split(";")[0] or "?", info["ms"], info["url"])
+    if "pdf" in ct.lower():
+        return head + ("[PDF document, %s. Download it with download_file, then extract the text with `pdftotext file.pdf -` "
+                       "(poppler) or a Python library.]" % human_size(len(info["body"])))
+    body = decode_body(info)
     if info["status"] >= 400:
-        return head + "Error page. Excerpt:\n" + cap(re.sub(r"\s+", " ", body)[:600])
-    if a.get("raw") or ("html" not in ct.lower() and "<html" not in body[:500].lower()):
+        return head + "Error page. Excerpt:\n" + cap(re.sub(r"\s+", " ", page_text_of(body) or body)[:600])
+    if raw or ("html" not in ct.lower() and "<html" not in body[:500].lower()):
         if "json" in ct.lower():
             try:
                 body = json.dumps(json.loads(body), indent=2, ensure_ascii=False)
             except ValueError:
                 pass
         return head + cap(body, limit)
-    pp = PageParser()
+    pp = PageParser(skip_chrome=True)
     pp.feed(body)
-    text = pp.page_text()
-    links = [(h, t) for h, t in pp.links if h and not h.startswith(("#", "javascript:"))][:40]
-    res = head + ("Title: %s\n\n" % pp.title.strip() if pp.title.strip() else "") + cap(text, limit)
+    text = pp.main_text()
+    links = [(h, t) for h, t in pp.links if h and not h.startswith(("#", "javascript:", "mailto:", "tel:"))][:40]
+    date = pp.published()
+    res = head + ("Title: %s\n" % pp.title.strip() if pp.title.strip() else "") + ("Published: %s\n" % date if date else "") + "\n" + cap(text, limit)
     if links:
-        res += "\n\n[Link]\n" + "\n".join("- %s -> %s" % (t[:60] or "(no text)", urllib.parse.urljoin(info["url"], h))
-                                          for h, t in links)
+        res += "\n\n[Links]\n" + "\n".join("- %s -> %s" % (t[:60] or "(no text)", urllib.parse.urljoin(info["url"], h)) for h, t in links)
     if len(text) < 200 and len(pp.scripts) >= 2:
-        res += "\n\n[Note: very little text; the site may be rendered with JavaScript (SPA).]"
+        res += "\n\n[Note: very little text; the site may be rendered with JavaScript (SPA). Look for an API, a sitemap or a text version.]"
     return cap(res, limit + 4000)
 
 
-def strip_tags(s):
-    return unescape(re.sub(r"<[^>]+>", "", s)).strip()
+@tool("web_fetch", "Fetch a web page or URL and convert it to clean text (title, date, main content, links). Pass `urls` to read several pages "
+      "in parallel in one call.",
+      {"url": S("URL"), "urls": L("more URLs to read in parallel (optional)"), "max_chars": I("character limit per page, default 12000"),
+       "raw": B("true = return the raw body (HTML/JSON/code)")}, ["url"])
+def t_web_fetch(a, ctx):
+    limit = max(1000, min(to_int(a.get("max_chars"), 12000), 40000))
+    extra = a.get("urls") or []
+    if isinstance(extra, str):
+        extra = [x for x in re.split(r"[\s,]+", extra) if x]
+    urls = [a.get("url")] + [u for u in extra if u][:7]
+    if len(urls) == 1:
+        return fetch_one(urls[0], limit, a.get("raw"))
+    per = max(1500, limit // len(urls))
 
+    def one(u):
+        try:
+            return fetch_one(u, per, a.get("raw"))
+        except ToolError as e:
+            return "ERROR: %s" % e
 
-@tool("web_search", "Search the web (DuckDuckGo). Returns titles, URLs and snippets.",
-      {"query": S("search query"), "max_results": I("number of results, default 8")}, ["query"])
-def t_web_search(a, ctx):
-    q = str(a.get("query", "")).strip()
-    if not q:
-        raise ToolError("empty query")
-    n = max(1, min(to_int(a.get("max_results"), 8), 15))
-    info = http_fetch("POST", "https://html.duckduckgo.com/html/",
-                      headers={"Content-Type": "application/x-www-form-urlencoded"},
-                      body=urllib.parse.urlencode({"q": q}).encode())
-    html_ = decode_body(info)
-    anchors = list(re.finditer(r'<a\s+([^>]*class="[^"]*result__a[^"]*"[^>]*)>(.*?)</a>', html_, re.S))
-    res = []
-    for i, m in enumerate(anchors):
-        href = re.search(r'href="([^"]+)"', m.group(1))
-        if not href:
-            continue
-        link = unescape(href.group(1))
-        if link.startswith("//"):
-            link = "https:" + link
-        qs = urllib.parse.parse_qs(urllib.parse.urlparse(link).query)
-        if "uddg" in qs:
-            link = qs["uddg"][0]
-        end = anchors[i + 1].start() if i + 1 < len(anchors) else len(html_)
-        sn = re.search(r'class="result__snippet"[^>]*>(.*?)</a>', html_[m.end():end], re.S)
-        res.append("%d. %s\n   %s\n   %s" % (len(res) + 1, strip_tags(m.group(2)), link,
-                                             strip_tags(sn.group(1)) if sn else ""))
-        if len(res) >= n:
-            break
-    if not res:
-        return "(no results; the search engine may be blocking requests. Try web_fetch on a URL directly)"
-    return "\n".join(res)
+    with ThreadPoolExecutor(max_workers=min(5, len(urls))) as pool:
+        parts = list(pool.map(one, urls))
+    return cap("\n\n".join("=== [%d] %s ===\n%s" % (i, u, t) for i, (u, t) in enumerate(zip(urls, parts), 1)), limit + 6000)
 
 
 @tool("review_website", "Audit a website: status, speed, SEO, headings, images without alt text, broken links, security headers, robots/sitemap, SPA detection. Returns raw data; write a review with prioritized fixes based on this report.",
@@ -97,7 +81,7 @@ def t_review_website(a, ctx):
     R = ["=== AUDIT: %s ===" % final,
          "HTTP status: %s | response time: %d ms | HTML size: %s | compression: %s | HTTPS: %s"
          % (info["status"], info["ms"], human_size(len(info["body"])), info["encoding"] or "none",
-            "ya" if pu.scheme == "https" else "NO")]
+            "yes" if pu.scheme == "https" else "NO")]
     if final.rstrip("/") != url.rstrip("/"):
         R.append("Redirected from %s" % url)
     if info["status"] >= 400:
@@ -142,7 +126,7 @@ def t_review_website(a, ctx):
     ext_js = [s for s in pp.scripts if s]
     R.append("scripts: %d (external %d, inline %s) | stylesheets: %d | forms: %d"
              % (len(pp.scripts), len(ext_js), human_size(pp.inline_js), len(pp.styles), pp.forms))
-    R.append("\n-- Link --")
+    R.append("\n-- Links --")
     internal, external, empty = [], [], 0
     for href, _t in pp.links:
         if not href or href.startswith("#") or href.lower().startswith("javascript:"):
@@ -181,7 +165,7 @@ def t_review_website(a, ctx):
 
 @tool("http_request", "Call any REST API. For API keys use a {{SECRET_NAME}} placeholder in the url, headers or body; the user stores it with /secret set NAME. Never ask for keys to be pasted into chat.",
       {"method": S("GET/POST/PUT/PATCH/DELETE"), "url": S("full URL"),
-       "headers": {"type": "object", "description": "header HTTP"},
+       "headers": {"type": "object", "description": "HTTP headers"},
        "json": {"type": "object", "description": "JSON body (optional)"},
        "body": S("raw body (optional)"), "timeout": I("seconds, default 30")}, ["url"])
 def t_http_request(a, ctx):

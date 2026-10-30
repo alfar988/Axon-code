@@ -312,6 +312,200 @@
    "deny": [],
    "min": 4,
    "pri": 0
+  },
+  "research-skill": {
+   "desc": "Web research workflow: search kinds, query craft, source checking, citations; deep_research, web_search, web_fetch and package_info patterns.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(research|riset|look up|find out|cari tahu|fact.?check|verify|verifikasi|latest|terbaru|newest|up.to.date|current version|which version|release notes|still supported|compare|bandingkan|versus|news|berita)\\b",
+     3
+    ],
+    [
+     "\\b(sources?|sumber|cite|citation|official docs?|documentation for|changelog|search (the )?(web|internet)|browse|google)\\b",
+     2
+    ]
+   ],
+   "deny": [],
+   "min": 3,
+   "pri": -0.2
+  },
+  "testing-skill": {
+   "desc": "Writing tests: bug-first regression tests, unittest/pytest/node:test, fake servers, CLI tests, flaky-test fixes.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(unit ?tests?|pytest|unittest|jest|mocha|vitest|tdd|test suite|coverage|regression tests?|write tests?|add tests?|flaky|mock(ing|s)?|fixtures?|pengujian|tes unit)\\b",
+     4
+    ],
+    [
+     "\\b(tests?|testing|uji)\\b",
+     1.5
+    ]
+   ],
+   "deny": [
+    "roblox|luau|serverscriptservice"
+   ],
+   "min": 4,
+   "pri": 0
+  },
+  "security-skill": {
+   "desc": "Secure by default: SQL injection, XSS, path traversal, SSRF, password hashing, secrets, tokens, rate limiting, with safe code.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(security|secure|insecure|vulnerab\\w*|injection|xss|csrf|ssrf|sanitiz\\w+|owasp|exploit(ed)?|pentest|encrypt\\w*|hash(ing)? passwords?|password hash\\w*|keamanan|celah)\\b",
+     4
+    ],
+    [
+     "\\b(jwt|oauth|cors|cookies?|sessions?|rate.?limit|api keys?|secrets?|token|login|auth)\\b",
+     1.5
+    ]
+   ],
+   "deny": [
+    "roblox|luau|serverscriptservice"
+   ],
+   "min": 4,
+   "pri": 0
+  },
+  "database-skill": {
+   "desc": "SQLite and SQL in practice: schema, migrations, transactions, indexes, pagination, upserts, backups.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(sqlite|sql|database|postgres(ql)?|mysql|schema|migrations?|migrasi|sqlalchemy|queries|query|indexes|transactions?|basis data|tabel)\\b",
+     4
+    ],
+    [
+     "\\b(select|insert|join|crud|pagination|paginasi|orm)\\b",
+     2
+    ]
+   ],
+   "deny": [
+    "roblox|luau|datastore"
+   ],
+   "min": 4,
+   "pri": 0
+  },
+  "git-skill": {
+   "desc": "Git day to day: branches, commit messages, undo recipes, conflicts, .gitignore, publishing to GitHub safely, bisect.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(git|github|gitlab|commit|branch|merge|rebase|pull request|gitignore|stash|cherry.?pick|bisect|upload (it )?to github|publish (it )?(to|on) github|repositor(y|i))\\b",
+     4
+    ]
+   ],
+   "deny": [],
+   "min": 4,
+   "pri": 0
+  },
+  "javascript-skill": {
+   "desc": "Modern JavaScript and Node: async patterns, DOM rules, common bugs, node:test.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(javascript|typescript|node\\.?js|nodejs|npm|deno|es6|esm|promises?|async|await|vanilla js|event listener|debounce)\\b",
+     4
+    ],
+    [
+     "\\b(callback|closure|setTimeout|fetch api|dom)\\b",
+     1.5
+    ]
+   ],
+   "deny": [
+    "roblox|luau|serverscriptservice"
+   ],
+   "min": 4,
+   "pri": 0
+  },
+  "cli-skill": {
+   "desc": "Command-line programs: argparse subcommands, exit codes, stdout vs stderr, --json, config precedence, packaging.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(cli|command.?line|argparse|click|typer|subcommands?|exit codes?|stdin|stdout|terminal (tool|app|program)|shell script|baris perintah)\\b",
+     4
+    ]
+   ],
+   "deny": [
+    "roblox|luau|serverscriptservice"
+   ],
+   "min": 4,
+   "pri": 0
+  },
+  "scraping-skill": {
+   "desc": "Responsible scraping: API first, robots.txt, rate limits, retries, caching, stdlib HTML parsing, pagination, storage.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(scrap(e|er|ers|ing)|crawl(er|ers|ing)?|spiders?|beautifulsoup|bs4|robots\\.txt|parse html|extract data|ambil data dari (web|situs|website))\\b",
+     5
+    ]
+   ],
+   "deny": [],
+   "min": 4,
+   "pri": 0
+  },
+  "bot-skill": {
+   "desc": "Chat bots: Telegram polling and webhooks, testable command router, limits, Discord, state, keeping it running.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(bot|telegram|discord|chatbot|botfather|getupdates|slack bot|whatsapp)\\b",
+     5
+    ],
+    [
+     "\\b(webhook|slash commands?)\\b",
+     1.5
+    ]
+   ],
+   "deny": [
+    "roblox|luau|serverscriptservice"
+   ],
+   "min": 4,
+   "pri": 0
+  },
+  "performance-skill": {
+   "desc": "Make slow code fast by measuring first: profiling, algorithms, caching, batching, front-end and phone memory limits.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(slow|slower|faster|speed ?up|optimi[sz]e|optimi[sz]ation|performance|profil(e|ing)|bottleneck|laggy|lag|memory leak|latency|benchmark|caching|lambat|ngelag|dioptimalkan|optimasi)\\b",
+     4
+    ]
+   ],
+   "deny": [
+    "roblox|luau|serverscriptservice"
+   ],
+   "min": 4,
+   "pri": 0
+  },
+  "docs-skill": {
+   "desc": "READMEs, changelogs, docstrings and interface text in plain professional English without hype.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(readme|documentation|docstrings?|changelog|release notes|write (a |the )?(guide|tutorial|docs)|tutorial|dokumentasi|panduan|contributing|license file)\\b",
+     4
+    ]
+   ],
+   "deny": [],
+   "min": 4,
+   "pri": 0
+  },
+  "self-improvement-skill": {
+   "desc": "Learning from your own work: when to save a lesson, note or skill, how to word them, how to write a skill file.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(learn from|improve yourself|self.?improv\\w*|teach yourself|evolve|get smarter|remember (this|that|for next time)|create (a |new )?skill|new skill|lessons?|belajar sendiri|berkembang sendiri|upgrade yourself|ingat (ini|itu))\\b",
+     5
+    ]
+   ],
+   "deny": [],
+   "min": 4,
+   "pri": 0
   }
  }
 }

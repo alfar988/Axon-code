@@ -22,7 +22,7 @@ from axion.sessions import load_session, save_session
 from axion.state import Ctx, ensure_key, is_free_model, load_config, req_today, save_config
 from axion.tools.shell import run_status_line, shell_run
 from axion.ui import (
-    acc, bold, C_USER, clip, dim, err, faint, fit_path, gradient, HAS_READLINE, LOGO, ok, out,
+    acc, bold, C_USER, clip, dim, err, faint, fit_path, HAS_READLINE, ok, out,
     paint, readline, rl, rule, short_model, tw, vlen, warn,
 )
 
@@ -134,10 +134,8 @@ def run_user_shell(ctx, cmd):
 def banner(ctx):
     w = min(tw(), 60)
     chip, _ = mode_chip(ctx)
-    side = (bold("C O D E") + dim("  v" + VERSION), dim("AI coding agent for the terminal"))
     out()
-    for i, row in enumerate(LOGO):
-        out("  " + gradient(row) + (("    " + side[i]) if w >= 44 else ""))
+    out("  " + bold("Axion Code") + dim("  v" + VERSION + "  ·  coding agent for the terminal"))
     out(rule())
     out("  " + dim("workspace  ") + fit_path(ctx.ws, w - 14))
     out("  " + dim("model      ") + clip(ctx.cur_model(), w - 14))

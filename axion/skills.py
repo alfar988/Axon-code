@@ -265,7 +265,7 @@ def list_skills(ctx=None):
             names.add(d.name)
             items.append({"name": d.name, "desc": meta.get("description") or _first_line(body), "file": f, "dir": d,
                           "kind": "external", "builtin": False, "size": len(body), "match": [], "deny": [],
-                          "min": 3.0, "pri": 0.0})
+                          "min": 3.0, "pri": 0.0, "kw": [k.strip().lower() for k in meta.get("keywords", "").split(",") if k.strip()]})
     return items
 
 
@@ -358,7 +358,8 @@ def score_skill(s, t, bonus):
             return -1.0
     if s["kind"] == "external":
         ov = len(_tokens(s["name"].replace("-", " ") + " " + s["desc"]) & _tokens(t))
-        sc = ov * 1.2 if ov >= 3 else 0.0
+        hits = sum(1 for k in s.get("kw", []) if re.search(r"(?<![a-z0-9])" + re.escape(k) + r"(?![a-z0-9])", t))
+        sc = hits * 2.0 + (ov * 1.2 if ov >= 3 else 0.0)
     else:
         sc = 0.0
         for pat, w in s["match"]:

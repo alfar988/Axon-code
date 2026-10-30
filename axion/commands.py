@@ -13,8 +13,10 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from axion import search as engine
 from axion.client import _REAL_GAI, NETSTATE
 from axion.config import API_BASE, DEFAULT_MODEL, ROUTER_MODEL, SESSIONS_DIR, SKILLS_DIR, VERSION
+from axion.knowledge import add_lesson, all_lessons, forget
 from axion.memory import hist_dir, load_history, peek_history, read_notes_text, show_plan
 from axion.models import (
     auto_rotation, candidate_models, compact_history, hist_chars, model_ctx_len, models_cmd,
@@ -28,6 +30,7 @@ from axion.templates import template_catalog
 from axion.tools.files import t_list_dir
 from axion.tools.misc import print_todos
 from axion.tools.project import overview_text, start_preview
+from axion.tools.research import keys_of
 from axion.tools.registry import TOOLS
 from axion.tools.shell import kill_group
 from axion.ui import acc, bold, clip, dim, err, faint, ok, out, rl, short_model, short_path, Spinner, tw, warn
@@ -123,9 +126,12 @@ HELP = """
   /rotate [auto|on|off|add id]  automatic fallback models
   /mode auto|chat|code        how the AI works
   /research on|off · /status · /abilities
+  /search [kind] <query>        search the web now (kinds: news code qa docs packages academic wiki)
+  /dig <question>               research a question across several sources
 
 %s
   /history · /resume · /notes   memory in the workspace
+  /lessons [list|add|forget|on|off]   what Axion learned from earlier work
   /auto · /access · /undo · /trash · /ps
   /serve [file] · /open <file> · /verify
   /overview · /ls · /cd
@@ -149,7 +155,7 @@ SLASH = ["/help", "/game", "/web", "/ask", "/plan", "/build", "/test", "/fix", "
          "/refactor", "/models", "/model", "/rotate", "/mode", "/research", "/status", "/abilities", "/history",
          "/resume", "/notes", "/auto", "/access", "/undo", "/trash", "/ps", "/kill", "/serve", "/open", "/verify",
          "/overview", "/ls", "/cd", "/skills", "/skill", "/templates", "/ui", "/secret", "/todo", "/compact", "/clear", "/save", "/load",
-         "/sessions", "/key", "/tokens", "/net", "/wakelock", "/init", "/exit"]
+         "/sessions", "/key", "/tokens", "/net", "/wakelock", "/init", "/search", "/dig", "/lessons", "/exit"]
 
 
 def cmd_skill(ctx, parts):
@@ -270,6 +276,79 @@ def cmd_research(ctx, arg):
     out("  " + dim("web research while planning: ") + ("on" if ctx.cfg.get("research", True) else "off") + dim("  (/research on|off)"))
 
 
+def cmd_lessons(ctx, arg, rest):
+    sub = arg[0].lower() if arg else "list"
+    if sub in ("on", "off"):
+        ctx.cfg["lessons"] = sub == "on"
+        save_config(ctx.cfg)
+        out("  " + dim("learning from earlier work: ") + (ok("on") if sub == "on" else warn("off")))
+    elif sub == "add" and len(arg) > 1:
+        try:
+            status, d = add_lesson(rest.split(None, 1)[1], "pref", [])
+        except ToolError as e:
+            out("  " + err("✗ %s" % e))
+            return
+        out("  " + ok("✓ lesson %s " % status) + dim("[%s]" % d["id"]))
+    elif sub in ("forget", "delete", "rm") and len(arg) > 1:
+        if arg[1] == "all":
+            try:
+                okk = input(rl("  delete ALL lessons? type 'yes' to confirm › ")).strip().lower() == "yes"
+            except EOFError:
+                okk = False
+            if not okk:
+                out("  " + dim("cancelled"))
+                return
+        n = forget(arg[1])
+        out("  " + (ok("✓ removed %d" % n) if n else warn("no lesson with that id")))
+    else:
+        items = all_lessons()
+        state = ok("on") if ctx.cfg.get("lessons", True) is not False else warn("off")
+        out("  " + bold("Lessons") + dim("  · %d saved · learning " % len(items)) + state)
+        for d in items[:30]:
+            wrapped = textwrap.wrap(d["text"], max(20, tw() - 18)) or [""]
+            out("  " + dim("%s " % d["id"]) + acc("%-4s " % d.get("kind", "tip")) + wrapped[0])
+            for extra in wrapped[1:]:
+                out(" " * 15 + extra)
+        if not items:
+            out("  " + dim("nothing yet. Axion saves a lesson after it fixes a non-obvious error, or you can add one: /lessons add <text>"))
+        else:
+            out("  " + dim("/lessons forget <id|all> · /lessons add <text> · /lessons on|off"))
+
+
+def cmd_search(ctx, arg, rest):
+    if not arg:
+        out("  " + dim("usage: /search [kind] <query>   kinds: " + " ".join(engine.KINDS) + "   ·   /search providers"))
+        return
+    if arg[0] == "providers":
+        for name, state in engine.provider_status(keys_of(ctx)):
+            out("  %-14s %s" % (name, ok(state) if state == "ready" else dim(state)))
+        out("  " + dim("optional keys (env or /secret set): BRAVE_API_KEY TAVILY_API_KEY SERPER_API_KEY SEARXNG_URL GITHUB_TOKEN"))
+        return
+    if arg[0] == "reset":
+        engine.reset_state()
+        out("  " + ok("✓ search cache and provider cooldowns cleared"))
+        return
+    kind, query = "general", rest
+    if arg[0].lower() in engine.KINDS and len(arg) > 1:
+        kind, query = arg[0].lower(), rest.split(None, 1)[1]
+    sp = Spinner("searching")
+    sp.start()
+    try:
+        found = engine.search(query, kind=kind, n=8, keys=keys_of(ctx))
+    except ToolError as e:
+        sp.stop()
+        out("  " + err("✗ %s" % e))
+        return
+    finally:
+        sp.stop()
+    out("  " + dim("%d results via %s" % (len(found["results"]), ", ".join(found["used"]) or "-")))
+    for i, r in enumerate(found["results"], 1):
+        out("  " + acc("%d " % i) + bold(clip(r["title"], tw() - 8)) + (dim("  " + r["date"]) if r["date"] else ""))
+        out("    " + dim(clip(r["url"], tw() - 8)))
+    for n in found["notes"][:3]:
+        out("  " + warn("! ") + dim(clip(n, tw() - 8)))
+
+
 def cmd_rotate(ctx, arg):
     sub = arg[0].lower() if arg else ""
     if sub in ("on", "off"):
@@ -340,14 +419,16 @@ def cmd_abilities(ctx):
         ("Quality", "static checks for undefined names, broken HTML and UI/accessibility/contrast review before it says done"),
         ("Files", "read/write/edit, delete (to trash), move/rename, copy, extract and create zip/tar, download, /undo"),
         ("Shell", "build and run commands with live output, background processes, web preview in the browser"),
-        ("Web", "search, read pages, audit websites, call APIs, download files"),
+        ("Research", "search with several providers (web, news, code, Q&A, docs, packages, papers), read pages in parallel, cite sources"),
+        ("Web", "read pages, audit websites, call APIs, download files"),
+        ("Learning", "saves lessons from fixed errors, applies them in later sessions, can write new skills (/lessons)"),
         ("Memory", "research notes and a full transcript in workspace/history, /resume, handoff between models"),
-        ("Reliable", "automatic fallback models, rate-limit cooldowns, stall detection, context compaction, auto-save on errors"),
+        ("Resilience", "automatic fallback models, rate-limit cooldowns, stall detection, context compaction, auto-save on errors"),
         ("Q&A", "answer questions, explain code, debug (/ask)"),
         ("Skills", "%d built-in skills picked automatically per request, plus installable ones" % len([s for s in list_skills(ctx) if s["builtin"]])),
     ]
     out()
-    out("  " + bold("Axion Code capabilities") + dim("  · %d tools" % len(TOOLS)))
+    out("  " + bold("What Axion Code can do") + dim("  · %d tools" % len(TOOLS)))
     for k, v in rows:
         wrapped = textwrap.wrap(v, max(16, tw() - 19)) or [""]
         out("  " + acc("▸ ") + bold("%-12s" % k) + dim(wrapped[0]))
@@ -607,6 +688,15 @@ def handle_command(ctx, line):
         return cmd_resume(ctx)
     elif cmd == "/notes":
         cmd_notes(ctx)
+    elif cmd == "/lessons":
+        cmd_lessons(ctx, arg, rest)
+    elif cmd == "/search":
+        cmd_search(ctx, arg, rest)
+    elif cmd == "/dig":
+        if not rest:
+            out("  " + dim("usage: /dig <question>"))
+            return None
+        return "CHAT:Research this thoroughly with deep_research (use several differently worded queries), then answer with numbered sources and say what you could not verify: " + rest
     elif cmd == "/abilities":
         cmd_abilities(ctx)
     elif cmd == "/verify":
