@@ -32,7 +32,7 @@ def t_todo(a, ctx):
             todos.append({"content": clip(text, 200), "status": st})
     if raw and not todos:
         raise ToolError('todo needs a list of items, for example [{"content": "Write the HTML", "status": "pending"}]')
-    if ctx.plan and len(ctx.todos) >= 3 and len(todos) < max(2, int(len(ctx.todos) * 0.6)):
+    if ctx.plan and ctx.plan_active and len(ctx.todos) >= 3 and len(todos) < max(2, int(len(ctx.todos) * 0.6)):
         todos = merge_todos(ctx.todos, todos)
     ctx.todos = todos
     print_todos(ctx)

@@ -57,6 +57,7 @@ class Ctx:
         self.rotations = 0
         self.handoff = False
         self.plan = None
+        self.plan_active = False   # True while the plan steers the current work; cleared when a new request starts
         self.task = ""
         self.intent = "task"
         self.force_intent = None

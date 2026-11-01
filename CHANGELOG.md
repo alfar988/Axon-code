@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.1.1] - 2026-11-01
+
+### Fixed
+- The agent no longer works on files outside the current request. The automatic UI review used to fall back to every HTML page in the workspace when the request had changed none, so an unrelated request could end with edits to an old page. Automatic checks now look only at files the request created or changed, and the UI review runs for build requests only.
+- The plan, todo list and automatic instructions of earlier work no longer carry over to a new request, and skills picked for earlier work are not reused. `continue`, `lanjut` and `/resume` still resume unfinished work, and `/resume` no longer starts a new plan.
+- The type of files in the workspace no longer selects a skill on its own.
+- The verification header is not printed when only notes or data files changed.
+
+### Changed
+- The prompts state the current request and a scope rule: leave other files alone, create only the files the task needs, keep new files inside the workspace, and report unrelated problems instead of fixing them.
+- Saved notes are marked as reference material that may belong to earlier work.
+
+### Added
+- `tests/test_scope.py`: regression tests, including a session against a fake server that reproduces the reported behavior.
+
 ## [1.1.0] - 2026-10-30
 
 ### Added

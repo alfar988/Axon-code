@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 
 API_BASE = (os.environ.get("AXION_API_BASE") or os.environ.get("AXON_API_BASE") or "https://openrouter.ai/api/v1").rstrip("/")

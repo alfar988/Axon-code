@@ -36,7 +36,7 @@ _PROMPT_CACHE = {}
 
 FALLBACK_SYSTEM = (
     "You are Axion Code, a coding agent working in the user's terminal (<<ENV>>). "
-    "Finish tasks end-to-end with tools; never only describe what you could do.\n"
+    "Finish tasks end-to-end with tools; never only describe what you could do. Stay inside the user's current request and leave other files alone.\n"
     "Workspace: <<WORKSPACE>> | OS: <<OS>> | Python <<PYTHON>> | Date: <<DATE>> | File access: <<ACCESS>>\n"
     "Call tools through native tool-calling with valid JSON. Write files in parts of at most <<CHUNK_LINES>> lines "
     "(write_file, then append_file). Verify with verify_files, run what you build, fix errors yourself, and report briefly in the "
@@ -99,11 +99,12 @@ def build_system(ctx, phase="build"):
         if p.is_file():
             parts.append("## Project instructions (%s)\n%s" % (fn, p.read_text(encoding="utf-8", errors="replace")[:6000]))
             break
-    if ctx.plan and phase != "plan":
+    if ctx.plan and ctx.plan_active and phase == "build":
         parts.append("## Approved plan (history/plan.md). Follow it step by step and keep `todo` in sync.\n" + plan_markdown(ctx.plan)[:6000])
     notes = read_notes_text(ctx, 3500)
     if notes:
-        parts.append("## Saved notes and research (history/notes.md)\n" + notes)
+        parts.append("## Saved notes and research (history/notes.md; reference only, they may belong to earlier work. "
+                     "Use them only when they help the current request)\n" + notes)
     lessons = lessons_block(ctx)
     if lessons:
         parts.append(lessons)
@@ -112,4 +113,9 @@ def build_system(ctx, phase="build"):
     skills = render_active_skills(ctx, ctx.active_skills, skill_budget(ctx, phase))
     if skills:
         parts.append(skills)
+    task = (ctx.task or "").strip()
+    if task and phase in ("build", "plan"):
+        parts.append("## Current request (your only task)\n" + (task if len(task) <= 900 else task[:900] + "…") + "\n"
+                     "Work on this and nothing else. Other files and projects in the workspace belong to earlier work: leave them alone. "
+                     "Automatic [system] messages (verification, UI review, reminders) concern only the files you change for this request.")
     return "\n\n".join(parts)

@@ -774,17 +774,19 @@ def review_html_file(ctx, p):
     return ui_review(text, extra, rel(ctx, Path(p)))
 
 
-def web_files(ctx, limit=4):
+def web_files(ctx, limit=4, fallback=True):
+    """HTML pages changed in this task. With fallback=True and nothing changed, the pages in the workspace root are returned;
+    that is only for an explicit review_ui call. Automatic passes use fallback=False so they never open files the task did not touch."""
     cands = [p for p in changed_files(ctx) if p.suffix.lower() in (".html", ".htm")]
-    if not cands:
+    if not cands and fallback:
         cands = sorted(Path(ctx.ws).glob("*.html"))[:limit]
     return cands[:limit]
 
 
 def ui_polish_findings(ctx):
-    """High/medium findings for the HTML files changed in this task (used by the auto-polish pass)."""
+    """High/medium findings for the HTML files changed in this task (used by the auto-polish pass). Never looks at other files."""
     res = []
-    for p in web_files(ctx):
+    for p in web_files(ctx, fallback=False):
         try:
             fs = review_html_file(ctx, p)
         except OSError:

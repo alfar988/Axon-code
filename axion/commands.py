@@ -552,6 +552,7 @@ def handle_command(ctx, line):
         out(HELP % (bold("Build & ask"), bold("Models & mode"), bold("Memory & permissions"), bold("More"), bold("Tips")))
     elif cmd == "/clear":
         ctx.messages, ctx.todos, ctx.plan, ctx.hist_count = [], [], None, 0
+        ctx.plan_active, ctx.task, ctx.active_skills = False, "", []
         out("  " + ok("✓ new conversation"))
     elif cmd == "/cd":
         if not rest:

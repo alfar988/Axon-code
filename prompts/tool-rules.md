@@ -23,5 +23,6 @@
 - If the same problem survives four attempts, stop and tell the user exactly what blocks you and what you tried.
 
 ## Before reporting done
-- `verify_files` on code you wrote; for HTML run `review_ui` and fix HIGH and MEDIUM findings. Run or test the result when the environment allows it.
+- `verify_files` on code you wrote; for HTML pages you created or changed in this request run `review_ui` and fix HIGH and MEDIUM findings. Run or test the result when the environment allows it.
+- Check and fix only what this request touched. Leave other files alone.
 - State only what you verified. List the files created, how to run them and any known limits.

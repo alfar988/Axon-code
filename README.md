@@ -114,8 +114,10 @@ Also: `!ls` runs a shell command directly, `@file.py` includes a file in your me
 1. **Intent and skills.** Axion decides whether you asked a question, a task or a build, and picks the skills that fit (for example `game-skill` and `planning-skill` for a game). `/skill why` shows the scores.
 2. **Plan.** For builds it researches the web where useful and saves a plan to `history/plan.md`.
 3. **Build.** It copies the best template with `use_template`, then customizes it substantially (new art, mechanics, sections and content). Axion compares the result with the template and sends the model back when it is still nearly identical, so a recolored starter is not accepted. Large files are written in parts so no single response is cut off. If a model hits its output limit, the complete part is saved and the model is asked for smaller parts.
-4. **Verify.** `verify_files` and `review_ui` run automatically. Problems are fed back to the model until they are fixed.
+4. **Verify.** `verify_files` runs on the files the request created or changed, and `review_ui` on the pages a build request produced. Problems are fed back to the model until they are fixed. Other files in the workspace are left alone.
 5. **Recover.** Errors trigger diagnosis hints and a debug skill. If a model keeps failing or is rate limited, Axion switches to another one and carries the plan and progress over.
+
+Each request is handled on its own. The plan and the todo list of earlier work do not carry over to a new request, and the automatic checks never open files the request did not touch. Say `continue` (or use `/resume`) to pick up unfinished work.
 
 ### Research
 
@@ -168,22 +170,6 @@ prompts/qa-prompt.md       question-and-answer mode
 - **Treat generated code like any code from the internet:** read it before running it on anything that matters.
 - **Web content is untrusted.** Pages, lessons and skills are treated as data; instructions inside them do not override your request. Creating a skill always asks for approval, even with `--auto`.
 - Axion has no telemetry. The only network calls are to OpenRouter, to the search providers and to the sites the model is asked to fetch.
-
-## introduction
-
-I'm 12, from Indonesia. I started learning to code at 11 by tinkering on my own.
-
-I built Axion Code in about a week on my Infinix phone (4GB RAM / 128GB). I don't have a laptop yet, so I use Termux.
-
-It was a bit challenging on a phone, but I kept going until it worked. I'm proud of how it turned out.
-
-What I usually use:
-- Python - for Axion Code and AI agents
-- Node.js - for backend servers for my apps
-- Kotlin / Flutter - for building Android apps
-- Lua - for Roblox games
-
-Axion Code is an autonomous coding agent that can write, check, and fix its own code. I made it to only need Python and Git, because that's what I had.
 
 ## Updating and uninstalling
 

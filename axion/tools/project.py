@@ -83,6 +83,7 @@ def t_submit_plan(a, ctx):
                 "features": texts(a.get("features")), "architecture": str(a.get("architecture") or ""), "files": files,
                 "steps": steps, "research_notes": str(a.get("research_notes") or ""), "verification": texts(a.get("verification"))}
     ctx.todos = [{"content": s["title"], "status": "pending"} for s in steps]
+    ctx.plan_active = True
     show_plan(ctx, ctx.plan)
     save_history(ctx, "plan")
     return ("OK: plan saved (%d steps) in history/plan.md. START BUILDING NOW: do step 1 and continue in order, keep todo updated. "

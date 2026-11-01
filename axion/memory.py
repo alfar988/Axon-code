@@ -65,7 +65,7 @@ def handoff_text(ctx, reason=""):
     parts.append("last model: " + ctx.cur_model())
     if ctx.task:
         parts += ["", "## User request", ctx.task[:1500]]
-    if ctx.plan:
+    if ctx.plan and ctx.plan_active:
         parts += ["", "## Plan", plan_markdown(ctx.plan)[:5000]]
     if ctx.todos:
         mark = {"completed": "x", "in_progress": ">"}
@@ -128,6 +128,7 @@ def load_history(ctx):
         return None
     ctx.messages = d["messages"]
     ctx.plan = d.get("plan")
+    ctx.plan_active = bool(ctx.plan)
     ctx.todos = d.get("todos") or []
     ctx.task = d.get("task", "")
     ctx.all_changes = [tuple(x) for x in d.get("changes", [])]

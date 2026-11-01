@@ -40,7 +40,7 @@ from axion.ui import (
     rl, rule, short_path, Spinner, tw, warn,
 )
 from axion.util import cap, human_size, rel
-from axion.verify import changed_files, file_sig, ui_polish_findings, verify_paths
+from axion.verify import changed_files, CODE_EXTS, file_sig, ui_polish_findings, verify_paths
 
 
 BUILD_VERBS = r"(buat(?:kan|in)?|bikin(?:in|kan)?|create|build|generate|develop|rancang|bangun|kembangkan|coding(?:kan)?|programkan|make)"
@@ -67,6 +67,8 @@ def decide_intent(ctx, text):
     """Returns (intent, needs_plan)."""
     forced, ctx.force_intent = ctx.force_intent, None
     t = text.strip().lower()
+    if forced is None and is_resume_prompt(t):
+        return "task", False          # /resume: go on with the loaded plan instead of starting a new build
     mode = ctx.cfg.get("mode", "auto")
     plan_wanted = bool(re.search(PLAN_NOUNS, t)) or len(t) > 160
     if forced == "build":
@@ -79,6 +81,40 @@ def decide_intent(ctx, text):
     if mode != "code" and (t.endswith("?") or re.match(Q_WORDS, t)) and not re.search(ACTION_VERBS, t):
         return "chat", False
     return "task", False
+
+
+CONT_RX = re.compile(r"^(lanjut(?:kan|in)?|terus(?:kan|in)?|continue|go on|keep going|resume|proceed|next|ok(?:e|ay)?|ya|iya|yes|yep|yup|y|"
+                     r"gas|sip|siap|boleh|setuju|silakan|do it|go ahead|retry|try again|coba lagi|ulangi|selesaikan|finish it)\b")
+
+
+RESUME_PREFIX = "continue the previous work"      # the prompt that /resume sends
+
+
+def is_resume_prompt(text):
+    return (text or "").strip().lower().startswith(RESUME_PREFIX)
+
+
+def is_continuation(text):
+    """True for 'continue', 'lanjut', 'ya' and the /resume prompt: the user wants unfinished work to go on rather than a new task."""
+    t = (text or "").strip().lower()
+    if t.startswith(RESUME_PREFIX):
+        return True
+    m = CONT_RX.match(t)
+    return bool(m) and len(t) <= 60 and len(t[m.end():].split()) <= 2
+
+
+RETIRED_NOTE = "[system] (an automatic message from earlier work in this session; it is already handled, no action needed)"
+
+
+def start_new_task(ctx):
+    """A request that is not a continuation starts from a clean slate: the todo list, the plan and the automatic instructions
+    of earlier work must not steer it. The plan stays in history/plan.md and /plan, and the conversation keeps its context."""
+    ctx.todos = []
+    ctx.plan_active = False
+    for m in ctx.messages:
+        c = m.get("content")
+        if m.get("role") == "user" and isinstance(c, str) and c.startswith("[system]") and c != RETIRED_NOTE:
+            m["content"] = RETIRED_NOTE
 
 
 def expand_mentions(ctx, text):
@@ -181,6 +217,10 @@ def auto_verify(ctx):
     files = [p for p in changed_files(ctx) if file_sig(p) != ctx.verified_sig.get(str(p))]
     if not files:
         return []
+    if not any(p.suffix.lower() in CODE_EXTS or p.suffix.lower() == ".json" for p in files):
+        for p in files:
+            ctx.verified_sig[str(p)] = file_sig(p)
+        return []                      # only notes, text or data files changed: nothing to check, nothing to print
     out()
     out(rule("verification"))
     sp = Spinner("checking the result")
@@ -429,7 +469,7 @@ def run_agent(ctx, phase, allowed, max_steps, stop_tool=None):
             if phase == "plan":
                 return "done"
             pending = [t for t in ctx.todos if t["status"] != "completed"]
-            if nudges < 1 and ctx.turn["tools"] > 0 and pending:
+            if phase == "build" and nudges < 1 and ctx.turn["tools"] > 0 and pending:
                 nudges += 1
                 out("  " + dim("↻ steps remain, continuing…"))
                 ctx.messages.append({"role": "user", "content": "[system] There are unfinished steps: " +
@@ -463,18 +503,19 @@ def run_agent(ctx, phase, allowed, max_steps, stop_tool=None):
                     if errs:
                         verifs += 1
                         out("  " + dim("↻ fixing the verification results…"))
-                        ctx.messages.append({"role": "user", "content": "[system] Automatic verification found problems that MUST be fixed:\n" +
+                        ctx.messages.append({"role": "user", "content": "[system] Automatic verification found problems in the files you changed in this request:\n" +
                                              "\n".join("- " + e for e in errs[:12]) +
-                                             "\nFix them now with tools, then run verify_files until it passes."})
+                                             "\nFix them now with tools, then run verify_files until it passes. Do not touch other files."})
                         continue
-                if polish < 1 and ctx.turn["tools"] > 0:
+                if polish < 1 and ctx.intent == "build" and ctx.turn["tools"] > 0:
                     polish += 1
-                    found = ui_polish_findings(ctx)
+                    found = ui_polish_findings(ctx)      # only the pages this request created or changed
                     if found:
                         out("  " + dim("↻ polishing the interface (%d findings)…" % len(found)))
                         activate_skill(ctx, "design-skill")
-                        ctx.messages.append({"role": "user", "content": "[system] Automatic UI review found problems. Fix the HIGH and MEDIUM ones now "
-                                             "with small, targeted edit_file changes, then run review_ui again:\n" +
+                        ctx.messages.append({"role": "user", "content": "[system] Automatic UI review of the page(s) you built in this request found problems. "
+                                             "Fix the HIGH and MEDIUM ones now with small, targeted edit_file changes in those files only, then run "
+                                             "review_ui again. Do not open or change any other file:\n" +
                                              "\n".join("- " + f for f in found)})
                         continue
                 if not reviewed and ctx.intent == "build" and ctx.plan and ctx.turn["tools"] > 0:
@@ -601,12 +642,15 @@ def run_turn(ctx, user_text):
     ctx.handoff = False
     intent, need_plan = decide_intent(ctx, user_text)
     ctx.intent = intent
-    if intent != "chat":
-        ctx.task = user_text
+    cont = intent == "task" and is_continuation(user_text)    # "continue", "lanjut", /resume: the earlier work goes on
+    if intent != "chat" and not cont:
+        ctx.task = user_text                                  # the request that this turn is about
     if intent == "build":
-        ctx.plan, ctx.todos = None, []
+        ctx.plan, ctx.todos, ctx.plan_active = None, [], False
+    elif intent != "chat" and not cont:
+        start_new_task(ctx)
     picked = pick_skills(ctx, user_text, intent, bool(need_plan and ctx.cfg.get("plan", True)))
-    if not picked and ctx.active_skills and (ctx.plan or len(user_text.strip()) < 40):
+    if not picked and ctx.active_skills and cont:
         picked = list(ctx.active_skills)  # "continue", "yes", ...: keep the previous skills
     ctx.active_skills = picked
     if intent == "chat":

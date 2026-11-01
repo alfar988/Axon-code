@@ -390,12 +390,15 @@ def pick_skills(ctx, text, intent, need_plan=False, phase="build", limit=MAX_ACT
         bonus["skill-memory-knowledge-management"] = 3.0
     if ERROR_PASTE_RX.search(text or ""):
         bonus["debug-skill"] = bonus.get("debug-skill", 0.0) + 4.0
+    ws_bonus = {}
     for kind in workspace_hints(ctx):
         for nm in WS_BONUS.get(kind, ()):
-            bonus[nm] = bonus.get(nm, 0.0) + 1.2
+            ws_bonus[nm] = ws_bonus.get(nm, 0.0) + 1.2
     scored = []
     for s in items:
         sc = score_skill(s, t, bonus)
+        if sc > 0:                                  # the files in the workspace never pick a skill on their own
+            sc += ws_bonus.get(s["name"], 0.0)
         if sc >= s["min"]:
             scored.append((sc + (0.4 if s["kind"] == "core" else 0.0) + s["pri"], s))
     scored.sort(key=lambda x: -x[0])
