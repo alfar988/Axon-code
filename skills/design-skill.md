@@ -4,6 +4,8 @@ description: Design clean, professional UIs with CSS: direction, tokens, type sc
 ---
 # Design skill (UI, GUI, CSS)
 
+For a small edit to an existing page (a color, a label, a spacing), change only what was asked and keep the page's own tokens; the identity and layout sections below are for building a new page.
+
 Good design here means: one clear direction, a small token system, generous spacing, readable type, honest content. **Start from a template** (`use_template("web-landing")` for sites, `"web-app"` for tools) and adapt it; both score 100/100 on `review_ui`.
 
 ## 1. Decide the direction (write it in a CSS comment)
@@ -71,10 +73,10 @@ Every interactive element needs hover, `:focus-visible`, active and disabled sta
 Real, specific copy beats lorem ipsum. Headline says what it is; subhead says for whom; button says what happens ("Start free trial", not "Submit"). No fake stats, fake testimonials, or invented logos.
 
 ## 8. Avoid the generic-AI look
-Purple/indigo-to-pink gradients, gradient text, glow and glassmorphism everywhere, three identical centered cards under a centered hero, emoji icons, "Welcome to my website", stock-photo placeholders, heavy drop shadows. Use whitespace, alignment and one accent instead.
+Purple/indigo-to-pink gradients, gradient text, glow and glassmorphism everywhere, three identical centered cards under a centered hero, emoji icons, "Welcome to my website", stock-photo placeholders, heavy drop shadows. Use whitespace, alignment and one accent instead. Keep text crisp: no blur, no large glow or shadow on text, no glass panel behind numbers.
 
 ## 9. Make it yours (a template is a start, not the result)
-Axion compares your page with the template and sends you back when it is too similar. Changing the accent and the title is not design. Do all of these:
+Axion compares your page with the template and sends you back when it is too similar. Changing the accent and the title is not design. Build the page for THIS subject and add nothing the request did not call for:
 - **Identity:** a palette of 3 to 4 tokens (surface, ink, accent, one secondary tone), a deliberate type pairing, one shape language (sharp, soft, pill).
 - **Real content and structure:** write the copy for THIS subject; remove sections that do not apply, add ones that do (gallery, timeline, comparison table, case studies, team, location, menu, schedule).
 - **A custom hero visual** drawn with inline SVG or CSS, not the generic preview card.

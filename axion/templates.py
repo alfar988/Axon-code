@@ -71,9 +71,9 @@ def t_use_template(a, ctx):
     ctx.templates_used[str(dest)] = {"name": key, "lines": text.splitlines(), "min": float(m.get("min_novelty", 0.3)),
                                      "customize": list(m.get("customize", []))}
     todo = "\n".join("  - " + c for c in m.get("customize", []))
-    return (res + "\n" + m.get("guide", "") + "\n\nThis is a FOUNDATION, not the finished product. The user expects a result designed for THEIR request. "
+    return (res + "\n" + m.get("guide", "") + "\n\nThis is a FOUNDATION, not the finished product. The user expects a result built for THEIR request. "
             "Changing only colors, the title or names is rejected: Axion compares your final file with the template and sends you back "
-            "when it is too similar. Customize substantially:\n" + todo +
+            "when it is too similar. Adapt it to the request, and add nothing the user did not ask for:\n" + todo +
             "\nWork with edit_file / append_file in small parts, then verify_files and review_ui / preview_web.")
 
 
@@ -98,8 +98,8 @@ def template_nudge(ctx):
         nov = template_novelty(info["lines"], cur)
         if nov < info["min"]:
             return ("[system] %s is still %d%% identical to the '%s' template (a recolor or rename is not enough). The user asked for something "
-                    "designed for THEIR request, not the starter with different paint. Customize it substantially now, with edit_file and "
-                    "append_file in small parts, covering:\n%s\nKeep what works (the engine, tokens and accessibility), replace and extend "
-                    "everything that makes it generic. Then run verify_files and review_ui."
+                    "built for THEIR request, not the starter with different paint. Adapt it to the request now, with edit_file and "
+                    "append_file in small parts, covering:\n%s\nKeep what works (the engine, tokens and accessibility), replace what makes it "
+                    "generic, and do not add features the user did not ask for. Then run verify_files and review_ui."
                     % (path, int(round((1 - nov) * 100)), info["name"], "\n".join("- " + c for c in info["customize"])))
     return None

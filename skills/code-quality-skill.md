@@ -6,6 +6,14 @@ description: Write correct, readable, safe code the first time: structure, namin
 
 Most bad AI code fails in the same few ways. Avoid them on purpose.
 
+## Work in this order
+1. **Read first.** Open the files you will change and the code that calls them. Copy the project's style, names and structure; do not introduce a second way of doing the same thing.
+2. **List the requirements** the user gave, and only those. Anything else is out of scope: leave it out, and mention it in one line at the end if it matters.
+3. **Pick examples before code:** two normal inputs, one edge case (empty, zero, huge) and one failure. They become your first test.
+4. **Smallest design that works.** Plain functions and data first; no class hierarchy, framework or dependency unless the request needs it.
+5. **Write in small steps and run after each.** A bug found within ten lines is cheap; found after three hundred it is not.
+6. **Review your own diff** like a stranger (checklist below), then report with evidence for each requirement: the command you ran and what it printed.
+
 ## The ten rules
 1. **Every name you use exists.** Before calling a function, constant or element id, make sure you defined it (search_files if unsure). Undefined helpers are the number one bug. verify_files now reports them; fix them, do not wave them off.
 2. **Complete code only.** No `...`, `TODO`, `pass`-only functions, "implement later", or pseudo-code. If a feature is out of scope, leave it out, not half-built.
@@ -20,6 +28,7 @@ Most bad AI code fails in the same few ways. Avoid them on purpose.
 
 ## Error handling patterns
 ```python
+# check: runs
 # Python: specific exceptions, context, no silent failure
 import json
 def load_config(path):
@@ -30,6 +39,8 @@ def load_config(path):
         return {}                                   # a missing file is a normal case: defaults
     except json.JSONDecodeError as e:
         raise ValueError("config %s is not valid JSON (line %d)" % (path, e.lineno)) from e
+
+assert load_config("missing-file.json") == {}
 ```
 ```javascript
 // JavaScript: network call with timeout, status check and a useful error
@@ -47,6 +58,7 @@ async function getJSON(url, ms = 8000) {
 
 ## Input validation
 ```python
+# check: runs
 def parse_quantity(raw):
     try:
         n = int(str(raw).strip())
@@ -55,6 +67,14 @@ def parse_quantity(raw):
     if not 1 <= n <= 999:
         raise ValueError("quantity must be between 1 and 999")
     return n
+
+assert parse_quantity(" 7 ") == 7
+for bad in ("abc", "0", "1000"):
+    try:
+        parse_quantity(bad)
+        raise SystemExit("should have failed: " + bad)
+    except ValueError:
+        pass
 ```
 ```javascript
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
@@ -106,6 +126,7 @@ Run with `python -m unittest -v`. For browser code, expose a small `window.app` 
 - [ ] Errors from bad input, a missing file and a failed request show a clear message instead of a crash.
 - [ ] No leftover placeholders, debug prints or commented-out blocks.
 - [ ] The README or my final message says how to run it.
+- [ ] Every requirement the user gave maps to something I ran or tested, and I added nothing they did not ask for.
 
 ## Typical AI mistakes and their fixes
 | Mistake | Fix |
@@ -116,3 +137,7 @@ Run with `python -m unittest -v`. For browser code, expose a small `window.app` 
 | Off-by-one in loops and slices | Test the first, last and empty cases |
 | Uses an API that does not exist in the loaded version | Read the docs of that exact version; check the template |
 | Rewrites a whole file for a small change | Use edit_file with a unique snippet |
+| Adds features, files or dependencies nobody asked for | Tie every change to a requirement; remove the rest |
+| Catches an error and quietly returns a default | Let it fail loudly, or log it and re-raise |
+| Trusts the first idea on a hard problem | Write a brute force and compare on random small inputs (algorithms-skill) |
+| Says "done" without running anything | Run it and quote the output |

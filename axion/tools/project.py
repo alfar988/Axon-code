@@ -45,7 +45,7 @@ def t_read_notes(a, ctx):
 
 @tool("submit_plan", "Submit the final plan (planning phase). Call it once, after research is done.",
       {"title": S("project title"), "summary": S("what will be built, what will differ from the template, and the assumptions"),
-       "features": L("concrete, testable features, including at least three that go beyond a template"),
+       "features": L("concrete, testable features taken from the request (quality work counts, features nobody asked for do not)"),
        "architecture": S("file/module structure and how the parts connect"),
        "files": {"type": "array", "description": "list of files", "items": {"type": "object", "properties": {
            "path": {"type": "string"}, "purpose": {"type": "string"}}}},
@@ -87,8 +87,8 @@ def t_submit_plan(a, ctx):
     show_plan(ctx, ctx.plan)
     save_history(ctx, "plan")
     return ("OK: plan saved (%d steps) in history/plan.md. START BUILDING NOW: do step 1 and continue in order, keep todo updated. "
-            "When a template fits, start from it with use_template, then customize it substantially (new visuals, new mechanics or "
-            "sections, real content): a recolored template is rejected. Write code in parts (write_file, then append_file), then "
+            "When a template fits, start from it with use_template, then adapt it to the request (its theme, rules, art, content and wording) "
+            "without adding what the user did not ask for: a recolored template is rejected. Write code in parts (write_file, then append_file), then "
             "verify and run it." % len(steps))
 
 

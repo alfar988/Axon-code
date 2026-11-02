@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.2.0] - 2026-11-01
+
+### Added
+- `reasoning-skill` for hard questions: restate, choose a method, compute and cross-check instead of guessing, and answer in a short fixed shape. Runnable examples cover exact arithmetic, enumeration and seeded simulation.
+- `algorithms-skill`: constraints to complexity target to pattern, brute force first, a stress-test helper that shrinks failing inputs, and reference code for binary search on the answer, sliding window, prefix sums, Dijkstra, BFS, union-find, topological sort, dynamic programming, intervals and backtracking. `tests/test_skill_algorithms.py` cross-checks every function against brute force.
+- `scripts/page_check.js` loads an HTML page in a stub browser at portrait and landscape sizes and reports exceptions, canvas size and draw calls per frame, so a blank or frozen screen is found before the user sees it.
+- Question-and-answer mode can use `run_python` for calculations and brute-force checks. It asks for approval as usual and is told never to change files.
+
+### Changed
+- Skills, templates and prompts no longer demand extra features. The "at least two mechanics beyond the template" lists, the "minimum bar" in `game-skill` and the planning rule for features beyond a template are replaced by rules that follow the request: adapt the template to what the user described and add nothing they did not ask for.
+- `code-quality-skill` opens with a work order (read first, list requirements, pick examples, smallest design, small steps, review the diff) and checks every requirement against evidence.
+- `debug-skill` covers empty canvases, bugs that appear only in landscape, smeared text, wrong results without errors and regressions.
+- `game-skill` has a first-frame checklist. `design-skill` keeps small edits small and keeps text crisp.
+
 ## [1.1.1] - 2026-11-01
 
 ### Fixed

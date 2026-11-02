@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 
-VERSION = "1.1.1"
+VERSION = "1.2.0"
 
 
 API_BASE = (os.environ.get("AXION_API_BASE") or os.environ.get("AXON_API_BASE") or "https://openrouter.ai/api/v1").rstrip("/")
@@ -79,7 +79,7 @@ WEB_TOOLS = {"web_search", "web_fetch", "review_website", "deep_research", "pack
 PLAN_TOOLS = READ_TOOLS | {"submit_plan", "ask_user", "todo"}
 
 
-CHAT_TOOLS = set(READ_TOOLS)
+CHAT_TOOLS = set(READ_TOOLS) | {"run_python"}      # run_python: calculations and brute-force checks for hard questions
 
 
 MODELS_CACHE = HOME_DIR / "models_cache.json"

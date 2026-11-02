@@ -16,6 +16,7 @@ When a command, check or test fails you own the fix. Do not ask permission to re
 7. **Explain in two sentences:** cause, fix, how to avoid it.
 
 ## Discipline
+- Keep a three-line ledger: hypothesis, test, result. Never repeat a test whose result you already have.
 - Change one thing at a time; if a change did not move the symptom, revert it before trying the next.
 - After the same idea fails twice, change strategy: bisect (disable half the code), build a minimal reproduction, or print intermediate values.
 - Never hide an error by catching and ignoring it, and never delete a test to make it pass.
@@ -51,6 +52,9 @@ When a command, check or test fails you own the fix. Do not ask permission to re
 | Gradle `SDK location not found` | No Android SDK configured | `local.properties` with `sdk.dir=...` |
 | Java `UnsupportedClassVersionError` | JDK older than the build target | Install/switch to the required JDK |
 | Page is blank | Exception before render | First error in the console; verify_files |
+| Canvas is black or the playfield is empty | Canvas size 0 or never set; `draw()` before `resize()`; the loop died on its first exception; entities off screen or the same color as the background; `clearRect` after drawing | Log `canvas.width`, `canvas.height` and the first entity's x, y; read the first console error; `node scripts/page_check.js page.html` |
+| Fine in portrait, empty or cut off in landscape | Size computed from `innerHeight` minus fixed heights (zero or negative), or `aspect-ratio` fighting the container | Size from `getBoundingClientRect()`, clamp to >= 1, test both orientations |
+| Text looks smeared or blurry | `filter: blur`, a large `text-shadow`, `backdrop-filter` behind text, canvas text not scaled for devicePixelRatio | Remove the effect from text; draw canvas text after `setTransform` for the pixel ratio |
 
 ## Instrumentation when the cause is unclear
 ```python
@@ -72,7 +76,8 @@ Disable half of the code (comment out, early return). If the bug stays, it is in
 - **Works once, fails the second time:** leftover state (global, cache, file, database row). Reset state, then re-run.
 - **Only on the phone:** touch events, viewport, memory, missing CDN access, absolute paths. Test with the smallest viewport and with the network blocked.
 - **Intermittent:** time, randomness, concurrency. Make it deterministic (seed, fixed clock) to reproduce.
-- **No error but wrong result:** write the expected value down, print the actual one at each step, find the first step that differs.
+- **No error but wrong result:** write the expected value down, print the actual one at each step, find the first step that differs. Check types and units (`repr`, `type`), off-by-one at the edges, shared data mutated by another part, and the order of operations.
+- **It worked before:** `git diff`, or `git bisect run <test command>`, shows the change that broke it; undo only that change.
 
 ## Stop conditions
 After four distinct attempts on the same problem without progress, stop and report: what you tried, what you learned, the most likely cause, and the one thing you need from the user.

@@ -506,6 +506,68 @@
    "deny": [],
    "min": 4,
    "pri": 0
+  },
+  "reasoning-skill": {
+   "desc": "Hard questions: restate, pick a method, compute and cross-check instead of guessing, answer directly (math, logic, probability, estimates, trade-offs, why).",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(prove|proof|buktikan|pembuktian|derive|turunkan rumus|probabilit\\w*|probability|peluang|nilai harapan|expected value|combinatoric\\w*|kombinatori\\w*|permutasi|kombinasi|permutations?|combinations?|paradox|paradoks|logic puzzle|teka-?teki|riddle|brain ?teaser|bayes|fermi|estimat\\w+|perkirakan|taksir|berapa banyak|how many|how likely|seberapa mungkin|jumlah cara|banyak cara|number of ways|coin change|kembalian)\\b",
+     4
+    ],
+    [
+     "\\b(math|matematika|logic|logika|statistik\\w*|statistics|geometry|geometri|algebra|aljabar|calculus|kalkulus|integral|derivative|turunan fungsi|matrix|matriks|modulo|prime numbers?|bilangan prima|gcd|fpb|kpk|lcm|persamaan|equation|rumus|formula)\\b",
+     3
+    ],
+    [
+     "\\b(hitung|hitunglah|calculate|compute|solve|selesaikan|tentukan|determine|berapa|how much|how long|how far|berapa lama|seberapa)\\b",
+     2.5
+    ],
+    [
+     "\\b(why|kenapa|mengapa|explain|jelaskan|compare|bandingkan|which is better|mana yang lebih|trade-?offs?|pros and cons|kelebihan dan kekurangan|should i|sebaiknya|recommend|rekomendasi|analy[sz]e|analisis)\\b",
+     1.5
+    ],
+    [
+     "\\d\\s*%|\\b\\d+\\s*(?:x|\\*|/|\\^)\\s*\\d+",
+     1
+    ],
+    [
+     "\\b(hard|difficult|tricky|rumit|sulit|susah|kompleks|complex|challenging)\\b",
+     1
+    ]
+   ],
+   "deny": [
+    "\\b(buatkan|bikinkan|bikin(?:in)?|buat(?:in)?|create|build|generate|make me|develop)\\b.{0,40}\\b(game|gim|website|web ?page|landing|app|aplikasi|bot|api|dashboard|template|situs)\\b"
+   ],
+   "min": 3,
+   "pri": 0.5
+  },
+  "algorithms-skill": {
+   "desc": "Algorithms and data structures: constraints, complexity, pattern, brute force first, stress test; tested code for binary search, windows, graphs, DP.",
+   "kind": "core",
+   "match": [
+    [
+     "\\b(algorithms?|algoritma|leetcode|big-?o|time complexity|space complexity|kompleksitas|dynamic programming|pemrograman dinamis|binary search|pencarian biner|two pointers?|sliding window|dijkstra|bellman|floyd|bfs|dfs|breadth.first|depth.first|topological|union.?find|disjoint set|segment tree|fenwick|trie|priority queue|antrian prioritas|shortest path|jalur terpendek|spanning tree|knapsack|subsequence|backtracking|memoi[sz]ation|memoisasi|pathfinding|astar|a-star|(?:quick|merge|heap|bubble|insertion|selection|radix) ?sort|sorting algorithm|competitive programming|coin change|kembalian)\\b",
+     4
+    ],
+    [
+     "\\bo\\((?:n|1|log|v|e|m)",
+     4
+    ],
+    [
+     "\\b(optimi[sz]e|optimalkan|mengoptimalkan|optimasi|optimalisasi|efficient|efisien|faster|lebih cepat|time limit|tle|too slow|terlalu lambat|n log n|data structures?|struktur data|linked list|binary tree|pohon biner|hash ?map|hash ?table|heap|stack|queue|tumpukan|antrian|graph|graf|recursion|rekursi|rekursif|permutation|combination)\\b",
+     3
+    ],
+    [
+     "\\b(array|larik|string|substring|matrix|grid|integers?|bilangan bulat|prime|prima)\\b",
+     1
+    ]
+   ],
+   "deny": [
+    "roblox|luau"
+   ],
+   "min": 4,
+   "pri": 0.3
   }
  }
 }

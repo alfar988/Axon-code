@@ -10,7 +10,7 @@ The goal is a game that starts, is fun in the first 20 seconds, runs smoothly on
 use_template(name="game-2d", path="index.html", vars={"TITLE": "Bunny Garden", "ACCENT": "#35c48f"})   # canvas 2D
 use_template(name="game-3d", path="index.html", vars={"TITLE": "Gem Arena",   "ACCENT": "#35c48f"})   # Three.js r128
 ```
-Pick 2D unless the user asks for 3D. Then customize it, in this order, with `edit_file` / `append_file` (small edits, never a full rewrite). Keep the engine, replace and extend the content:
+For a small change to an existing game (a color, a speed, a bug) edit only that and leave the rest alone. Otherwise pick 2D unless the user asks for 3D, then adapt the template, in this order, with `edit_file` / `append_file` (small edits, never a full rewrite). Keep the engine, replace and extend the content:
 
 ## Adapting the 2D template (worked example: "Bunny Garden")
 1. **CONFIG**: world size, speeds, lives, spawn rates, colors. Rename the theme in the overlay texts.
@@ -29,15 +29,24 @@ function drawOrb(o) {                     // a carrot: orange triangle + green l
 6. **Tune** `rampSeconds`, `spawn.*`, `comboWindow` by playing the first minute in your head: easy start, then steady pressure.
 7. `verify_files`, `review_ui`, `preview_web`.
 
-## Make it yours: the minimum bar (required)
-A recolored template is a failed job. Axion compares your file with the template and sends you back when it is too similar. Before you finish, the game must have:
-1. **Its own art:** every entity redrawn for the theme with canvas paths (a carrot, a bee, a bunny with ears), plus a themed background (parallax layers, scenery), not circles on dots.
-2. **Two or more new mechanics** the template lacks: power-ups, a second enemy behavior, waves or a boss, shooting, a dash upgrade, levels.
-3. **A themed menu, HUD and game-over screen:** real title, real instructions, theme colors and type, floating +score text.
-4. **Richer feedback:** a sound per event (and a small music loop if it fits), particles and shake tuned to the theme.
-5. **Progression:** levels or waves with a visible difficulty curve, and persistent state worth keeping (best score, settings).
+## Fit it to the request (what "done" means for a template)
+A recolored template is a failed job, and so is a template stuffed with features nobody asked for. Axion sends the file back when it is still the starter with different paint, so adapt it to what the user described:
+1. **Their game:** theme, entities, goal, rules and wording come from the request. Remove template mechanics that do not belong; add only mechanics the request names or clearly implies.
+2. **Their art:** redraw every entity for the theme with canvas paths (a carrot, a bee, a bunny with ears) and give the field a matching background, not circles on dots.
+3. **Their screens:** a themed menu, HUD and game-over screen with a real title and real instructions in the user's language.
+4. **Feedback that fits:** a sound and a visual response for each event that exists in the game, tuned to the theme.
+5. **Extras only on request.** Power-ups, bosses, waves, levels, shops and upgrades are recipes below. Use one only when the user asked for it or the request cannot work without it. When in doubt leave it out and polish what was asked.
 
-## Enhancement recipes (add these to the template, then theme them)
+## First frame guarantee (never ship a black screen)
+Before you say "done" the first frame must show the playfield, the player and the HUD at a readable size, in portrait and in landscape. Check it, do not assume it:
+- `resize()` runs before the first `draw()`, reads the container with `getBoundingClientRect()` and clamps width and height to at least 1. Landscape phones are short: never subtract fixed heights from `innerHeight` without a lower bound.
+- The loop starts in the menu state too, and the menu draws the world behind its overlay.
+- Entities spawn inside the visible area. Log the player's x, y and the canvas size once: all positive, the player inside the canvas.
+- Entity colors differ from the background (a dark ship on a dark sky is invisible). HUD numbers stay crisp: no `filter: blur`, no big `text-shadow`, no `backdrop-filter` behind text.
+- One exception in `update()` or `draw()` stops `requestAnimationFrame` for good, so the screen freezes or stays empty. Read the first console error and fix it.
+- With node installed run `node scripts/page_check.js index.html`: it loads the page in a stub browser at portrait and landscape sizes, runs 120 frames and reports exceptions and the number of canvas draw calls per frame. "0 draw calls" means a blank screen.
+
+## Enhancement recipes (optional: use one only when the request calls for it)
 ```javascript
 // 1) Floating score text. In update(dt): age and drift them. In render(): draw them.
 const floaters = [];
@@ -144,4 +153,4 @@ function blip(freq, dur) { const o = ac.createOscillator(), g = ac.createGain();
 | Black 3D screen | No lights, camera inside the object, wrong `lookAt` | Add a HemisphereLight, set `camera.position`, call `lookAt` |
 
 ## Done means
-`verify_files` clean, `review_ui` >= 85, the game starts from the menu, scores, ends and restarts, and you told the user how to open it (`preview_web`, or open the file in a browser). For big games also load the reference skill `skill-game-development-implementation` part by part.
+`verify_files` clean, `review_ui` >= 85, the first frame checked in portrait and landscape, the game starts from the menu, scores, ends and restarts, every requirement the user gave is met and nothing they did not ask for was added. Then tell the user how to open it (`preview_web`, or open the file in a browser). For big games also load the reference skill `skill-game-development-implementation` part by part.

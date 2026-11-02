@@ -12,7 +12,7 @@ It was built to run well in Termux on a phone (narrow output, no heavy dependenc
 - **Learns from its work:** after it fixes a non-obvious error it can save a lesson, applies relevant lessons in later sessions, and can write a new skill for a procedure it expects to repeat (it asks first). You can review and delete everything with `/lessons`.
 - **Checks its own work:** syntax, undefined functions and variables, broken HTML, and a static UI review (responsive layout, accessibility, WCAG color contrast, generic "AI look") before it says it is done.
 - **Repairs itself:** when a command or check fails it reads the error, applies the likely fix (install the module, change the port, correct the path) and reruns, without waiting for you.
-- **Uses skills:** 29 guides with working code examples and troubleshooting steps, selected automatically for each request.
+- **Uses skills:** 31 guides with working code examples and troubleshooting steps, selected automatically for each request.
 - **Copes with unreliable free models:** automatic fallback to other models, rate-limit cooldowns, repair of broken tool-call JSON, recovery from cut-off output.
 - **Stays inside your workspace** unless you approve otherwise, and deletes to a recoverable trash.
 
@@ -113,8 +113,8 @@ Also: `!ls` runs a shell command directly, `@file.py` includes a file in your me
 
 1. **Intent and skills.** Axion decides whether you asked a question, a task or a build, and picks the skills that fit (for example `game-skill` and `planning-skill` for a game). `/skill why` shows the scores.
 2. **Plan.** For builds it researches the web where useful and saves a plan to `history/plan.md`.
-3. **Build.** It copies the best template with `use_template`, then customizes it substantially (new art, mechanics, sections and content). Axion compares the result with the template and sends the model back when it is still nearly identical, so a recolored starter is not accepted. Large files are written in parts so no single response is cut off. If a model hits its output limit, the complete part is saved and the model is asked for smaller parts.
-4. **Verify.** `verify_files` runs on the files the request created or changed, and `review_ui` on the pages a build request produced. Problems are fed back to the model until they are fixed. Other files in the workspace are left alone.
+3. **Build.** It copies the best template with `use_template`, then adapts it to your request (art, rules, sections and content, and nothing you did not ask for). Axion compares the result with the template and sends the model back when it is still nearly identical, so a recolored starter is not accepted. Large files are written in parts so no single response is cut off. If a model hits its output limit, the complete part is saved and the model is asked for smaller parts.
+4. **Verify.** `verify_files` runs on the files the request created or changed, and `review_ui` on the pages a build request produced. Problems are fed back to the model until they are fixed. Other files in the workspace are left alone. For web pages and games, `node scripts/page_check.js page.html` loads the page in a stub browser at portrait and landscape sizes and reports exceptions and blank canvases (needs Node.js).
 5. **Recover.** Errors trigger diagnosis hints and a debug skill. If a model keeps failing or is rate limited, Axion switches to another one and carries the plan and progress over.
 
 Each request is handled on its own. The plan and the todo list of earlier work do not carry over to a new request, and the automatic checks never open files the request did not touch. Say `continue` (or use `/resume`) to pick up unfinished work.
@@ -131,7 +131,7 @@ Lessons are short notes such as "On Termux `pip install pillow` needs `pkg insta
 
 ### Skills
 
-Built in: planning, code quality, frontend, design, game, backend, python, debug, environment, android, roblox, research, testing, security, database, git, javascript, command-line tools, scraping, bots, performance, documentation and self-improvement. Six larger reference skills (complex thinking, deep research, game development, memory management, planning, UI/CSS/color) load in parts so a small model's context is not filled up front. The code examples in the guides are executed by the test suite.
+Built in: planning, code quality, reasoning (hard questions), algorithms, frontend, design, game, backend, python, debug, environment, android, roblox, research, testing, security, database, git, javascript, command-line tools, scraping, bots, performance, documentation and self-improvement. Six larger reference skills (complex thinking, deep research, game development, memory management, planning, UI/CSS/color) load in parts so a small model's context is not filled up front. The code examples in the guides are executed by the test suite.
 
 Add your own: put `my-skill.md` in `skills/` (optionally register trigger patterns in `skills/manifest.json`), or install one from a GitHub repo with `/skill install URL`.
 
@@ -196,7 +196,7 @@ rm -rf ~/.axion                   # remove settings (key, sessions, trash)
 python -m unittest discover -s tests -v
 ```
 
-The suite covers tool-call repair, history sanitizing, failure diagnosis, the skill router, the static checkers, the search providers (against a local mock server, no internet needed), lessons and learned skills, the code examples inside the skills, and every template (HTML templates run in a stubbed browser with Node.js, code templates run their own self test; Node-dependent tests are skipped if Node is missing). End-to-end tests run the agent against a fake OpenRouter server that reproduces rate limits, 403s, broken JSON and cut-off output.
+The suite covers tool-call repair, history sanitizing, failure diagnosis, the skill router, the static checkers, the search providers (against a local mock server, no internet needed), lessons and learned skills, the code examples inside the skills (the algorithms are cross-checked against brute force), the page checker, and every template (HTML templates run in a stubbed browser with Node.js, code templates run their own self test; Node-dependent tests are skipped if Node is missing). End-to-end tests run the agent against a fake OpenRouter server that reproduces rate limits, 403s, broken JSON and cut-off output.
 
 ```
 run.py          entry point
@@ -204,6 +204,7 @@ axion/          the program (cli, agent, client, models, skills, verify, tools/ 
 prompts/        system prompt and rules
 skills/         skill guides and manifest.json
 templates/      tested starters and manifest.json
+scripts/        page_check.js: crash and blank-canvas check for HTML pages (needs Node.js)
 tests/          unit, integration and template tests
 ```
 
