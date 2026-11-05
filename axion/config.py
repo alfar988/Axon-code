@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 
 API_BASE = (os.environ.get("AXION_API_BASE") or os.environ.get("AXON_API_BASE") or "https://openrouter.ai/api/v1").rstrip("/")
@@ -65,7 +65,7 @@ STALL_DEFAULT = 90
 MAXREQ_DEFAULT = 1500
 
 
-PLAN_MAX_STEPS = 10
+PLAN_MAX_STEPS = 12
 
 
 READ_TOOLS = {"list_dir", "read_file", "search_files", "find_files", "project_overview", "read_notes", "save_note",
@@ -83,6 +83,12 @@ CHAT_TOOLS = set(READ_TOOLS) | {"run_python"}      # run_python: calculations an
 
 
 MODELS_CACHE = HOME_DIR / "models_cache.json"
+
+
+MODELS_TTL = 12 * 3600      # the model list is fetched again after 12 hours
+
+
+MODELS_POLL = 600           # how often the background refresher checks whether the list is stale (seconds)
 
 
 # --- package locations (the folder you extracted or cloned: run.py, prompts/, skills/, templates/) ---

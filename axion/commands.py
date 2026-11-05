@@ -15,17 +15,20 @@ from pathlib import Path
 
 from axion import search as engine
 from axion.client import _REAL_GAI, NETSTATE
-from axion.config import API_BASE, DEFAULT_MODEL, ROUTER_MODEL, SESSIONS_DIR, SKILLS_DIR, VERSION
+from axion import providers
+from axion.config import DEFAULT_MODEL, ROUTER_MODEL, SESSIONS_DIR, SKILLS_DIR, VERSION
+from axion.limits import cmd_checklimit
+from axion.provider_ui import cmd_key, cmd_provider
 from axion.knowledge import add_lesson, all_lessons, forget
 from axion.memory import hist_dir, load_history, peek_history, read_notes_text, show_plan
 from axion.models import (
-    auto_rotation, candidate_models, compact_history, hist_chars, model_ctx_len, models_cmd,
+    auto_rotation, candidate_models, choose_model, compact_history, hist_chars, model_ctx_len, models_cmd,
     rotation_enabled,
 )
 from axion.security import ask_outside, fs_path, inside
 from axion.sessions import cmd_trash, do_undo, load_session, save_session
-from axion.skills import find_skill, install_skill, list_skills, safe_name, skill_body, split_parts
-from axion.state import api_get, ensure_key, key_of, mask_key, req_today, save_config, ToolError
+from axion.skills import find_skill, install_skill, list_skills, safe_name, skill_body, skill_mode, split_parts
+from axion.state import api_get, ensure_key, key_of, mask_key, req_today, req_today_for, save_config, ToolError
 from axion.templates import template_catalog
 from axion.tools.files import t_list_dir
 from axion.tools.misc import print_todos
@@ -122,7 +125,9 @@ HELP = """
   /readme · /explain <file> · /refactor <file>
 
 %s
-  /models · /model [id|n]     choose a free model
+  /provider [name]            switch AI provider (OpenRouter, Anthropic, Grok, OpenAI, Gemini, ...)
+  /models · /model [id|n]     list models, best first, and choose one
+  /checklimit [probe]         how much of the AI allowance is left
   /rotate [auto|on|off|add id]  automatic fallback models
   /mode auto|chat|code        how the AI works
   /research on|off · /status · /abilities
@@ -141,7 +146,7 @@ HELP = """
   /templates                    list ready-made starters
   /secret set|list|del <NAME>   store other API keys
   /todo · /compact · /clear · /save · /load
-  /key · /tokens · /net · /wakelock · /exit
+  /key [provider] · /tokens · /net · /wakelock · /exit
 
 %s
   !command    run a shell command (live output)
@@ -155,7 +160,7 @@ SLASH = ["/help", "/game", "/web", "/ask", "/plan", "/build", "/test", "/fix", "
          "/refactor", "/models", "/model", "/rotate", "/mode", "/research", "/status", "/abilities", "/history",
          "/resume", "/notes", "/auto", "/access", "/undo", "/trash", "/ps", "/kill", "/serve", "/open", "/verify",
          "/overview", "/ls", "/cd", "/skills", "/skill", "/templates", "/ui", "/secret", "/todo", "/compact", "/clear", "/save", "/load",
-         "/sessions", "/key", "/tokens", "/net", "/wakelock", "/init", "/search", "/dig", "/lessons", "/exit"]
+         "/sessions", "/key", "/provider", "/checklimit", "/tokens", "/net", "/wakelock", "/init", "/search", "/dig", "/lessons", "/exit"]
 
 
 def cmd_skill(ctx, parts):
@@ -192,12 +197,22 @@ def cmd_skill(ctx, parts):
     elif sub in ("unpin", "off"):
         if arg in ("", "all"):
             ctx.pinned_skills.clear()
-            out("  " + ok("✓ all skills released; Axion picks them automatically again"))
+            out("  " + ok("✓ all pinned skills released"))
         else:
             s = find_skill(list_skills(ctx), arg)
             ctx.pinned_skills.discard(s["name"] if s else arg)
             out("  " + ok("✓ released: ") + (s["name"] if s else arg))
+    elif sub == "mode":
+        if arg.lower() in ("ai", "auto"):
+            ctx.cfg["skill_mode"] = arg.lower()
+            save_config(ctx.cfg)
+            out("  " + ok("✓ skill mode: ") + ("the AI loads skills itself with use_skill" if arg.lower() == "ai" else "Axion picks skills from the request"))
+        else:
+            out("  " + dim("skill mode: ") + skill_mode(ctx) + dim("  (/skill mode ai | auto)"))
     elif sub == "why":
+        if skill_mode(ctx) == "ai":
+            out("  " + dim("AI mode: the model chooses skills itself. Loaded for this task: ") + (", ".join(ctx.active_skills) or "none yet"))
+            return
         if not ctx.skill_report:
             out("  " + dim("no skill scoring yet. Send a request first."))
             return
@@ -212,7 +227,7 @@ def cmd_skill(ctx, parts):
         else:
             out("  " + err("no installed skill in " + short_path(SKILLS_DIR) + " (built-in skills cannot be removed)"))
     else:
-        out("  " + dim("usage: /skill show <name> | use <name> | unpin [name] | why | install <url> | remove <name>"))
+        out("  " + dim("usage: /skill show <name> | use <name> | unpin [name] | mode ai|auto | why | install <url> | remove <name>"))
 
 
 def cmd_status(ctx):
@@ -222,9 +237,14 @@ def cmd_status(ctx):
     if cur != base:
         out("  " + dim("main model   ") + base + dim("  (switched automatically)"))
     out("  " + dim("rotation     ") + ("on · %d fallbacks" % max(0, len(candidate_models(ctx)) - 1) if rotation_enabled(ctx) else "off"))
-    out("  " + dim("key          ") + (mask_key(k) if k else err("not set")))
-    out("  " + dim("usage today  ") + "%d%s" % (req_today(ctx), (" / %d" % ctx.cfg["free_daily"]) if ctx.cfg.get("free_daily") else
-                                               dim("  (free-tier limits apply; adding credit raises them)")))
+    prov = providers.active(ctx.cfg)
+    out("  " + dim("provider     ") + prov["name"])
+    out("  " + dim("key          ") + (mask_key(k) if k else (dim("not needed") if not providers.needs_key(prov) else err("not set"))))
+    if prov["id"] == "openrouter":
+        out("  " + dim("usage today  ") + "%d%s" % (req_today(ctx), (" / %d" % ctx.cfg["free_daily"]) if ctx.cfg.get("free_daily") else
+                                                   dim("  (free-tier limits apply; adding credit raises them)")))
+    else:
+        out("  " + dim("usage today  ") + "%d requests" % req_today_for(ctx, prov["id"]) + dim("  · remaining limit: /checklimit"))
     out("  " + dim("network      ") + ("IPv4 only" if NETSTATE["ipv4_only"] else "IPv4 preferred"))
     out("  " + dim("workspace    ") + short_path(ctx.ws))
     out("  " + dim("permissions  ") + ("auto" if ctx.auto else "ask first") + dim("  · outside access: ") +
@@ -516,7 +536,7 @@ def cmd_net(ctx, arg):
         save_config(ctx.cfg)
         out("  " + ok("✓ ") + "IPv4-only mode: " + ("on" if on else "off"))
         return
-    u = urllib.parse.urlparse(API_BASE)
+    u = urllib.parse.urlparse(providers.base_url(ctx.cfg))
     host, port = u.hostname, u.port or (443 if u.scheme == "https" else 80)
     out("  " + dim("network to ") + host)
     for fam, label in ((socket.AF_INET, "IPv4"), (socket.AF_INET6, "IPv6")):
@@ -535,7 +555,7 @@ def cmd_net(ctx, arg):
         except OSError as e:
             out("  %s %s failed: %s" % (err("✗"), label, clip(str(e), tw() - 16)))
     t0 = time.time()
-    st, _data = api_get("/models", None, timeout=20)
+    st, _data = api_get("/models", key_of(ctx) if providers.needs_key(providers.active(ctx.cfg)) else None, timeout=20)
     out("  %s GET /models: %s in %d ms" % (ok("✓") if st == 200 else err("✗"), st, int((time.time() - t0) * 1000)))
     out("  " + dim("IPv4-only mode: ") + ("on" if NETSTATE["ipv4_only"] else "off (IPv4 is tried first)"))
     out("  " + dim("if you often see Errno 103: /net ipv4 on · and run termux-wake-lock"))
@@ -589,20 +609,16 @@ def handle_command(ctx, line):
                 models_cmd(ctx)
             i = int(rest)
             if 1 <= i <= len(ctx.model_list):
-                ctx.cfg["model"] = ctx.model_list[i - 1]["id"]
-                ctx.cfg["model_chosen"] = True
-                save_config(ctx.cfg)
+                choose_model(ctx, ctx.model_list[i - 1]["id"])
                 out("  " + ok("✓ model: ") + ctx.cfg["model"])
             else:
                 out("  " + err("no such number. See /models"))
         elif rest:
-            ctx.cfg["model"] = rest
-            ctx.cfg["model_chosen"] = True
-            save_config(ctx.cfg)
+            choose_model(ctx, rest)
             out("  " + ok("✓ model: ") + rest)
         else:
-            out("  " + dim("model: ") + ctx.cfg.get("model", DEFAULT_MODEL))
-            out("  " + dim("list of free models: /models"))
+            out("  " + dim("model: ") + (ctx.cfg.get("model") or DEFAULT_MODEL) + dim("  · provider: " + providers.active(ctx.cfg)["name"]))
+            out("  " + dim("list of models, best first: /models"))
     elif cmd == "/status":
         cmd_status(ctx)
     elif cmd == "/auto":
@@ -619,7 +635,7 @@ def handle_command(ctx, line):
             mark = ok("●") if s["name"] in ctx.active_skills else acc("•")
             tag = {"reference": " · large", "external": " · installed"}.get(s["kind"], "")
             out("  " + mark + " " + bold(s["name"]) + dim(tag + " - " + clip(s["desc"], max(10, tw() - len(s["name"]) - len(tag) - 8))))
-        out("  " + dim("● = active for the current request · Axion picks skills itself · pin one with /skill use <name>"))
+        out("  " + dim("● = loaded for the current task · the AI loads skills itself with use_skill · pin one with /skill use <name> · mode: /skill mode ai|auto"))
     elif cmd == "/templates":
         out(template_catalog())
         out("  " + dim("the AI copies one with use_template and adapts it; ask for a game or a page and it starts from the best match"))
@@ -657,7 +673,11 @@ def handle_command(ctx, line):
         files = sorted(SESSIONS_DIR.glob("*.json")) if SESSIONS_DIR.is_dir() else []
         out("\n".join("  • " + f.stem for f in files) if files else "  " + dim("(no sessions yet)"))
     elif cmd == "/key":
-        ensure_key(ctx, force=True)
+        cmd_key(ctx, arg)
+    elif cmd == "/provider":
+        cmd_provider(ctx, arg)
+    elif cmd in ("/checklimit", "/limit", "/limits"):
+        cmd_checklimit(ctx, arg)
     elif cmd == "/tokens":
         u = ctx.usage
         out("  " + dim("last prompt     : ") + "%d token" % u["last_prompt"])

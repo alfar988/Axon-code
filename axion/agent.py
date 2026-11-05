@@ -24,7 +24,7 @@ from axion.models import (
 )
 from axion.prompts import build_system
 from axion.security import inside
-from axion.skills import activate_skill, pick_skills
+from axion.skills import activate_skill, pick_skills, skill_mode
 from axion.state import (
     ApiError, ensure_key, is_free_model, key_of, NoToolsError, req_today, save_config, validate_key,
 )
@@ -488,7 +488,7 @@ def run_agent(ctx, phase, allowed, max_steps, stop_tool=None):
                 activate_skill(ctx, "debug-skill")
                 ctx.messages.append({"role": "user", "content": "[system] The last %s call failed: %s. Nothing shows that it works now. Find the "
                                      "cause, fix it, and run the check again until it passes. If it truly cannot be fixed, explain exactly "
-                                     "why. Do not ask for permission to fix your own bugs." % (issue["tool"], issue["summary"])})
+                                     "why. Do not ask for permission to fix your own bugs. Load debug-skill with use_skill if you have not." % (issue["tool"], issue["summary"])})
                 continue
             if phase == "build" and ctx.intent != "chat":
                 if ctx.templates_used and ctx.turn.get("tpl_nudges", 0) < 2:
@@ -515,7 +515,7 @@ def run_agent(ctx, phase, allowed, max_steps, stop_tool=None):
                         activate_skill(ctx, "design-skill")
                         ctx.messages.append({"role": "user", "content": "[system] Automatic UI review of the page(s) you built in this request found problems. "
                                              "Fix the HIGH and MEDIUM ones now with small, targeted edit_file changes in those files only, then run "
-                                             "review_ui again. Do not open or change any other file:\n" +
+                                             "review_ui again (design-skill has the checklist; load it with use_skill if it helps). Do not open or change any other file:\n" +
                                              "\n".join("- " + f for f in found)})
                         continue
                 if not reviewed and ctx.intent == "build" and ctx.plan and ctx.turn["tools"] > 0:
@@ -591,8 +591,8 @@ def run_agent(ctx, phase, allowed, max_steps, stop_tool=None):
         if (badjson >= 3 or trunc >= 2) and rotate_now(ctx, "repeatedly broken or cut-off tool calls"):
             badjson = trunc = 0
         err_streak = err_streak + 1 if (n_err and not n_ok) else 0
-        if err_streak == 3:
-            activate_skill(ctx, "debug-skill")
+        if err_streak == 3 and not activate_skill(ctx, "debug-skill") and skill_mode(ctx) == "ai" and "debug-skill" not in ctx.active_skills:
+            ctx.messages.append({"role": "user", "content": "[system] Three steps in a row failed. Load debug-skill with use_skill and follow its runbook before the next attempt."})
         if err_streak == 4:
             ctx.messages.append({"role": "user", "content": "[system] Four steps in a row failed. Stop repeating the same approach: read the error "
                                  "messages, inspect the real state (list_dir / read_file), then choose a different strategy. If you are still "
@@ -649,7 +649,11 @@ def run_turn(ctx, user_text):
         ctx.plan, ctx.todos, ctx.plan_active = None, [], False
     elif intent != "chat" and not cont:
         start_new_task(ctx)
-    picked = pick_skills(ctx, user_text, intent, bool(need_plan and ctx.cfg.get("plan", True)))
+    if skill_mode(ctx) == "auto":
+        picked = pick_skills(ctx, user_text, intent, bool(need_plan and ctx.cfg.get("plan", True)))
+    else:
+        picked = sorted(ctx.pinned_skills)                    # AI mode: the model loads skills itself with use_skill
+        ctx.skill_report = []
     if not picked and ctx.active_skills and cont:
         picked = list(ctx.active_skills)  # "continue", "yes", ...: keep the previous skills
     ctx.active_skills = picked

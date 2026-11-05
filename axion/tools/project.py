@@ -3,6 +3,7 @@
 import json
 import os
 import platform
+import re
 import shlex
 import shutil
 import socket
@@ -43,14 +44,30 @@ def t_read_notes(a, ctx):
     return read_notes_text(ctx, 9000) or "(no notes yet)"
 
 
+def plan_gaps(plan):
+    """Features that no step, detail or check mentions (matched on word stems), so the plan cannot silently drop them."""
+    def stems(text):
+        return {w[:5] for w in re.findall(r"[a-z0-9]{4,}", str(text).lower())}
+    covered = set()
+    for s in plan.get("steps", []):
+        covered |= stems("%s %s %s" % (s.get("title", ""), s.get("details", ""), s.get("verify", "")))
+    covered |= stems(" ".join(plan.get("acceptance", [])))
+    return [f for f in plan.get("features", []) if stems(f) and not (stems(f) & covered)]
+
+
 @tool("submit_plan", "Submit the final plan (planning phase). Call it once, after research is done.",
       {"title": S("project title"), "summary": S("what will be built, what will differ from the template, and the assumptions"),
        "features": L("concrete, testable features taken from the request (quality work counts, features nobody asked for do not)"),
        "architecture": S("file/module structure and how the parts connect"),
        "files": {"type": "array", "description": "list of files", "items": {"type": "object", "properties": {
            "path": {"type": "string"}, "purpose": {"type": "string"}}}},
-       "steps": {"type": "array", "description": "ordered work steps (6-14), each a short sentence", "items": {"type": "object", "properties": {
-           "title": {"type": "string"}, "details": {"type": "string"}}, "required": ["title"]}},
+       "steps": {"type": "array", "description": "ordered work steps (5-12), risky part early, each with the check that shows it worked", "items": {"type": "object", "properties": {
+           "title": {"type": "string"}, "details": {"type": "string"}, "verify": {"type": "string", "description": "command or observation that proves this step worked"}},
+           "required": ["title"]}},
+       "acceptance": L("observable checks that prove each requirement is met (what the user will see or run)"),
+       "risks": L("what is hardest or most uncertain, each with how you will handle it"),
+       "assumptions": L("what you assumed where the request was silent (keep it short)"),
+       "out_of_scope": L("what you will NOT build because the user did not ask for it"),
        "research_notes": S("key research findings with source URLs"), "verification": L("how to check each important feature")},
       ["title", "summary", "steps"])
 def t_submit_plan(a, ctx):
@@ -60,13 +77,16 @@ def t_submit_plan(a, ctx):
             title = item_text(s, ("title", "step", "name", "content", "task", "description", "text"))
             details = str(s.get("details") or s.get("detail") or "")
             details = "" if details == title else details
+            verify = str(s.get("verify") or s.get("check") or s.get("verification") or "")
         else:
-            title, details = str(s), ""
+            title, details, verify = str(s), "", ""
         if len(title) >= 3:
-            steps.append({"title": clip(title, 160), "details": clip(details, 400)})
+            steps.append({"title": clip(title, 160), "details": clip(details, 400), "verify": clip(verify, 200)})
     steps = steps[:PLAN_MAX_STEPS]
     if not steps:
         raise ToolError("steps is empty: provide the work steps as a list of short sentences")
+    if len(steps) < 2:
+        raise ToolError("a plan needs at least 2 steps (build, then verify). Split the work so that each step ends with a check, and call submit_plan again")
     files = []
     for f in as_items(a.get("files")):
         if isinstance(f, dict):
@@ -81,15 +101,19 @@ def t_submit_plan(a, ctx):
 
     ctx.plan = {"title": clip(str(a.get("title") or "Project"), 120), "summary": str(a.get("summary") or ""),
                 "features": texts(a.get("features")), "architecture": str(a.get("architecture") or ""), "files": files,
-                "steps": steps, "research_notes": str(a.get("research_notes") or ""), "verification": texts(a.get("verification"))}
+                "steps": steps, "research_notes": str(a.get("research_notes") or ""), "verification": texts(a.get("verification")),
+                "acceptance": texts(a.get("acceptance")), "risks": texts(a.get("risks")), "assumptions": texts(a.get("assumptions")),
+                "out_of_scope": texts(a.get("out_of_scope"))}
     ctx.todos = [{"content": s["title"], "status": "pending"} for s in steps]
     ctx.plan_active = True
     show_plan(ctx, ctx.plan)
     save_history(ctx, "plan")
-    return ("OK: plan saved (%d steps) in history/plan.md. START BUILDING NOW: do step 1 and continue in order, keep todo updated. "
+    gaps = plan_gaps(ctx.plan)
+    note = (" Plan check: no step mentions these features: %s. Cover them in your steps (update todo) before you finish." % "; ".join(clip(g, 70) for g in gaps[:4])) if gaps else ""
+    return ("OK: plan saved (%d steps) in history/plan.md.%s START BUILDING NOW: do step 1 and continue in order, keep todo updated. "
             "When a template fits, start from it with use_template, then adapt it to the request (its theme, rules, art, content and wording) "
             "without adding what the user did not ask for: a recolored template is rejected. Write code in parts (write_file, then append_file), then "
-            "verify and run it." % len(steps))
+            "verify and run it." % (len(steps), note))
 
 
 KEY_FILES = ("README.md", "readme.md", "package.json", "requirements.txt", "pyproject.toml", "build.gradle",

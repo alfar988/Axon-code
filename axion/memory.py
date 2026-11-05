@@ -43,14 +43,16 @@ def read_notes_text(ctx, limit=4000):
 
 def plan_markdown(plan):
     parts = ["# Plan: %s" % plan.get("title", "Project"), "", plan.get("summary", ""), ""]
-    if plan.get("features"):
-        parts += ["## Features"] + ["- " + f for f in plan["features"]] + [""]
+    for key, head in (("acceptance", "Done when"), ("features", "Features"), ("assumptions", "Assumptions"), ("risks", "Risks"), ("out_of_scope", "Out of scope")):
+        if plan.get(key):
+            parts += ["## " + head] + ["- " + f for f in plan[key]] + [""]
     if plan.get("architecture"):
         parts += ["## Architecture", plan["architecture"], ""]
     if plan.get("files"):
         parts += ["## Files"] + ["- `%s`: %s" % (f["path"], f["purpose"]) for f in plan["files"]] + [""]
     if plan.get("steps"):
-        parts += ["## Steps"] + ["%d. **%s** %s" % (i, s["title"], s.get("details", "")) for i, s in enumerate(plan["steps"], 1)] + [""]
+        parts += ["## Steps"] + ["%d. **%s** %s%s" % (i, s["title"], s.get("details", ""), (" (check: %s)" % s["verify"]) if s.get("verify") else "")
+                                 for i, s in enumerate(plan["steps"], 1)] + [""]
     if plan.get("research_notes"):
         parts += ["## Research", plan["research_notes"], ""]
     if plan.get("verification"):
@@ -142,6 +144,14 @@ def show_plan(ctx, plan):
     rows = []
     if plan.get("summary"):
         rows.append((plan["summary"], None))
+    done = plan.get("acceptance") or []
+    if done:
+        rows += [("", None), ("Done when", C_ACC)] + [("• " + d, None) for d in done[:5]]
+        if len(done) > 5:
+            rows.append(("… +%d more checks" % (len(done) - 5), C_DIM))
+    risks = plan.get("risks") or []
+    if risks:
+        rows += [("", None), ("Risks", C_ACC)] + [("• " + r, None) for r in risks[:3]]
     feats = plan.get("features") or []
     if feats:
         rows += [("", None), ("Features", C_ACC)] + [("• " + f, None) for f in feats[:8]]
@@ -152,12 +162,18 @@ def show_plan(ctx, plan):
         rows += [("", None), ("Files", C_ACC)] + [("• %s: %s" % (f["path"], f["purpose"]) if f["purpose"] else "• " + f["path"], None)
                                                   for f in files[:8]]
     steps = plan.get("steps") or []
-    rows += [("", None), ("Steps", C_ACC)] + [("%d. %s" % (i, s["title"]), None) for i, s in enumerate(steps[:14], 1)]
+    rows += [("", None), ("Steps", C_ACC)]
+    for i, s in enumerate(steps[:14], 1):
+        rows.append(("%d. %s" % (i, s["title"]), None))
+        if s.get("verify") and len(steps) <= 8:
+            rows.append(("   check: " + s["verify"], C_DIM))
+    if plan.get("out_of_scope"):
+        rows += [("", None), ("Not building", C_ACC)] + [("• " + o, None) for o in plan["out_of_scope"][:3]]
     for line in panel("Plan · " + plan["title"], rows):
         out(line)
     est = max(6, int(len(steps) * 1.6) + 5)
     msg = "estimated ±%d requests · plan saved in history/plan.md" % est
-    if is_free_model(ctx.cur_model()):
+    if is_free_model(ctx.cur_model()):                    # only OpenRouter has a free daily quota
         left = (ctx.cfg.get("free_daily") or 50) - req_today(ctx)
         if est > left:
             msg += "  · ±%d free requests left today, which may not be enough" % max(left, 0)

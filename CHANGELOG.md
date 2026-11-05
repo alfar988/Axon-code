@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.3.0] - 2026-11-05
+
+### Added
+- More AI providers: Anthropic (native Messages API), xAI (Grok), OpenAI, Google Gemini, Groq, Mistral, DeepSeek, Together, Cerebras, Fireworks, NVIDIA NIM, Ollama, LM Studio and any OpenAI-compatible URL. Each provider has its own key and remembered model. `/provider`, `/key [provider]` and `--provider` manage them.
+- `/checklimit` shows the remaining allowance: credits, free daily quota and rate limit for OpenRouter, and rate-limit headers for the other providers. `/checklimit probe` reads them with one small request.
+- The model list is refreshed in the background every 12 hours and sorted by estimated capability. Offline, the last list is kept.
+- Plans carry acceptance criteria, risks, assumptions, out-of-scope items and a check for every step. A plan check reports features that no step mentions.
+- `NOTICE` file.
+
+### Changed
+- The AI chooses skills itself with `use_skill` (several names at once). `/skill mode auto` restores automatic selection.
+- The license is now Apache-2.0 (was MIT): explicit patent grant, notice preservation and no trademark grant. Copies released earlier under MIT stay under MIT.
+- Question-and-answer mode and the planning prompt were rewritten; `PLAN_MAX_STEPS` is 12.
+- Models that reject `max_tokens` or `temperature` (newer OpenAI models) are detected once and remembered.
+- Fallback models are on by default only for OpenRouter's free models; paid providers switch only when `/rotate` is on.
+
 ## [1.2.0] - 2026-11-01
 
 ### Added

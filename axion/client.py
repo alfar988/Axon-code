@@ -1,4 +1,4 @@
-"""OpenRouter client: streaming, retries, stall detection, error classification."""
+"""Provider client: streaming, retries, stall detection, error classification (OpenAI-style providers and Anthropic)."""
 
 import http.client
 import json
@@ -9,8 +9,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-from axion.config import API_BASE, MAXREQ_DEFAULT, STALL_DEFAULT, UA
-from axion.state import ApiError, bump_req, key_of, NoToolsError
+from axion import anthropic_wire, providers
+from axion.config import MAX_OUT_DEFAULT, MAXREQ_DEFAULT, STALL_DEFAULT, UA
+from axion.state import ApiError, bump_req, key_of, NoToolsError, save_config
 
 
 NET_ERRORS = (socket.timeout, TimeoutError, ConnectionError, OSError, http.client.HTTPException)
@@ -116,7 +117,9 @@ def classify_http(code, low):
         return "maxtok"
     if code in (404, 410):
         return "notfound"
-    if code in (408, 409, 425, 500, 502, 503, 504, 520, 521, 522, 524):
+    if code == 413:
+        return "ctx"
+    if code in (408, 409, 425, 500, 502, 503, 504, 520, 521, 522, 524, 529):
         return "server"
     return "other"
 
@@ -209,31 +212,56 @@ def read_stream(resp, on_text, on_status, emitted, stall_secs, max_secs):
     return msg, finish, usage, "".join(rparts)
 
 
-def stream_chat(ctx, model, messages, tools, on_text, on_status=None, retries=1, stream=True, on_reset=None,
-                fast_rate=False, max_tokens=None):
-    body = {"model": model, "messages": messages, "temperature": ctx.cfg.get("temperature", 0.2)}
-    if max_tokens or ctx.cfg.get("max_tokens"):
-        body["max_tokens"] = int(max_tokens or ctx.cfg["max_tokens"])
+def build_request(ctx, model, messages, tools, max_tokens, use_stream):
+    """(provider, url, body, headers) for the active provider. Models that reject a parameter are remembered in cfg['quirks']."""
+    prov = providers.active(ctx.cfg)
+    temp = ctx.cfg.get("temperature", 0.2)
+    mt = max_tokens or ctx.cfg.get("max_tokens")
+    quirks = (ctx.cfg.get("quirks") or {}).get(prov["id"] + ":" + model, {})
+    headers = {"Content-Type": "application/json", "User-Agent": UA}
+    headers.update(providers.auth_headers(prov, key_of(ctx)))
+    headers.update(providers.extra_headers(prov))
+    base = providers.base_url(ctx.cfg, prov)
+    if prov["style"] == "anthropic":
+        body = anthropic_wire.build_body(model, messages, tools, mt or MAX_OUT_DEFAULT, None if quirks.get("no_temperature") else temp, use_stream)
+        return prov, base + "/messages", body, headers
+    body = {"model": model, "messages": messages, "stream": use_stream}
+    if not quirks.get("no_temperature"):
+        body["temperature"] = temp
+    if mt:
+        body["max_completion_tokens" if quirks.get("max_completion_tokens") else "max_tokens"] = int(mt)
     if tools:
         body["tools"] = tools
-    headers = {"Authorization": "Bearer " + key_of(ctx), "Content-Type": "application/json", "X-Title": "Axion Code",
-               "User-Agent": UA, "HTTP-Referer": "https://github.com/alfar988/Axon-code"}
+    return prov, base + "/chat/completions", body, headers
+
+
+def remember_quirk(ctx, prov, model, name):
+    ctx.cfg.setdefault("quirks", {}).setdefault(prov["id"] + ":" + model, {})[name] = True
+    save_config(ctx.cfg)
+
+
+def stream_chat(ctx, model, messages, tools, on_text, on_status=None, retries=1, stream=True, on_reset=None,
+                fast_rate=False, max_tokens=None):
+    quirk_try = 0
     stall = int(ctx.cfg.get("stall_secs", STALL_DEFAULT))
     maxs = int(ctx.cfg.get("max_request_secs", MAXREQ_DEFAULT))
     delays = [3, 8, 20, 35]
     net_try = srv_try = 0
     while True:
         use_stream = stream and net_try < 2
-        body["stream"] = use_stream
+        prov, url, body, headers = build_request(ctx, model, messages, tools, max_tokens, use_stream)
         headers["Accept"] = "text/event-stream" if use_stream else "application/json"
         payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
         emitted = [False]
         status_err = None
         try:
-            conn, path = open_conn(API_BASE + "/chat/completions", 20, stall if use_stream else max(stall, 240))
+            conn, path = open_conn(url, 20, stall if use_stream else max(stall, 240))
             try:
                 conn.request("POST", path, body=payload, headers=headers)
                 resp = conn.getresponse()
+                seen = providers.pick_limit_headers(resp.getheaders())
+                if seen:
+                    ctx.rate_info[prov["id"]] = {"time": time.time(), "headers": seen}
                 if resp.status >= 400:
                     status_err = (resp.status, resp.read().decode("utf-8", "replace"), resp.getheader("Retry-After"))
                     conn.close()
@@ -261,8 +289,19 @@ def stream_chat(ctx, model, messages, tools, on_text, on_status=None, retries=1,
             msg = extract_error(txt)
             low = (msg + txt).lower()
             kind = classify_http(code, low)
+            if code in (400, 422) and prov["style"] == "openai" and quirk_try < 2:
+                if "max_completion_tokens" in low and "max_tokens" in low and "max_tokens" in body:
+                    remember_quirk(ctx, prov, model, "max_completion_tokens")       # newer OpenAI models use another name
+                    quirk_try += 1
+                    continue
+                if "temperature" in body and "temperature" in low and re.search(r"unsupported|not support|only the default|invalid", low):
+                    remember_quirk(ctx, prov, model, "no_temperature")             # reasoning models fix the temperature
+                    quirk_try += 1
+                    continue
             if kind == "daily":
-                raise ApiError("The daily free-model quota is used up. It resets at 00:00 UTC. Adding credit to your OpenRouter account raises the daily allowance, or switch to a paid model.", code=429, kind="daily")
+                if prov["id"] == "openrouter":
+                    raise ApiError("The daily free-model quota is used up. It resets at 00:00 UTC. Adding credit to your OpenRouter account raises the daily allowance, or switch to a paid model.", code=429, kind="daily")
+                raise ApiError("%s: daily limit reached (%s). Check /checklimit; it resets on the provider's schedule." % (prov["name"], msg[:160]), code=429, kind="daily")
             if kind in ("rate", "server") and srv_try < retries and not (kind == "rate" and fast_rate):
                 wait = min(max(delays[min(srv_try, 3)], retry_after or 0), 60)
                 if on_status:
@@ -278,9 +317,10 @@ def stream_chat(ctx, model, messages, tools, on_text, on_status=None, retries=1,
         bump_req(ctx)
         ctx.turn["reqs"] = ctx.turn.get("reqs", 0) + 1
         try:
+            anth = prov["style"] == "anthropic"
             if use_stream:
-                return read_stream(resp, on_text, on_status, emitted, stall, maxs)
-            return read_json(resp, on_text)
+                return (anthropic_wire.read_stream if anth else read_stream)(resp, on_text, on_status, emitted, stall, maxs)
+            return (anthropic_wire.read_json if anth else read_json)(resp, on_text)
         except ApiError as e:
             if e.kind == "net" and net_try < 3:
                 net_try += 1

@@ -17,7 +17,9 @@ from axion.client import NETSTATE
 from axion.commands import cmd_resume, handle_command, SLASH
 from axion.config import APP_DIR, DEFAULT_MODEL, HISTORY_FILE, HOME_DIR, ROUTER_MODEL, SKILLS_DIR, VERSION
 from axion.memory import log_event, peek_history, repair_history, save_history
-from axion.models import ensure_models, models_cmd, rotation_enabled
+from axion import providers
+from axion.models import auto_pick_model, models_cmd, rotation_enabled, start_refresher
+from axion.provider_ui import choose_provider
 from axion.sessions import load_session, save_session
 from axion.state import Ctx, ensure_key, is_free_model, load_config, req_today, save_config
 from axion.tools.shell import run_status_line, shell_run
@@ -138,12 +140,13 @@ def banner(ctx):
     out("  " + bold("Axion Code") + dim("  v" + VERSION + "  ·  coding agent for the terminal"))
     out(rule())
     out("  " + dim("workspace  ") + fit_path(ctx.ws, w - 14))
+    out("  " + dim("provider   ") + providers.active(ctx.cfg)["name"])
     out("  " + dim("model      ") + clip(ctx.cur_model(), w - 14))
     out("  " + dim("fallback   ") + (ok("on") + dim(" · switches model automatically on errors") if rotation_enabled(ctx) else warn("off")))
     out("  " + dim("access     ") + chip + dim(" · outside the workspace: ask"))
     out("  " + dim("memory     ") + "history/" + dim(" (automatic)"))
     out(rule())
-    out("  " + dim("Describe what to build or fix.  /help · /skills · /models"))
+    out("  " + dim("Describe what to build or fix.  /help · /models · /checklimit · /provider"))
     if ctx.cfg.get("model") == ROUTER_MODEL:
         out("  " + warn("!") + dim(" the random router gives inconsistent quality"))
         out("    " + dim("use /models to pick a fixed model"))
@@ -186,7 +189,8 @@ def main():
     global CTX
     ap = argparse.ArgumentParser(prog="axion", description="Axion Code - AI coding agent for the terminal (OpenRouter)")
     ap.add_argument("workspace", nargs="?", help="workspace folder (default: current directory, or ~/workspace when run from HOME)")
-    ap.add_argument("-m", "--model", help="id model OpenRouter")
+    ap.add_argument("-m", "--model", help="model id for the active provider")
+    ap.add_argument("--provider", help="AI provider: openrouter, anthropic, xai (Grok), openai, gemini, groq, mistral, deepseek, together, ...")
     ap.add_argument("-p", "--prompt", help="one-shot mode: send a single request, then exit")
     ap.add_argument("-c", "--continue", dest="cont", action="store_true", help="continue the last session")
     ap.add_argument("--auto", action="store_true", help="approve edits and commands inside the workspace automatically")
@@ -198,6 +202,14 @@ def main():
     for d in (HOME_DIR, SKILLS_DIR):
         d.mkdir(parents=True, exist_ok=True)
     cfg = load_config()
+    if args.provider:
+        prov = providers.find(args.provider)
+        if not prov:
+            print("unknown provider: %s (known: %s)" % (args.provider, ", ".join(p["id"] for p in providers.PROVIDERS)))
+            return 2
+        providers.switch(cfg, prov["id"])
+    else:
+        providers.detect_from_env(cfg)
     cfg.setdefault("model", DEFAULT_MODEL)
     NETSTATE["ipv4_only"] = bool(cfg.get("ipv4_only"))
     if args.model:
@@ -228,12 +240,18 @@ def main():
             pass
 
     out()
+    first_run = not cfg.get("provider") and not providers.providers_with_keys(cfg)
+    if (args.setup or first_run) and sys.stdin.isatty() and not args.prompt:
+        if not choose_provider(ctx, first_run):
+            return 1
     if not ensure_key(ctx, force=args.setup):
-        out("  " + err("An API key is required. Run again and paste your OpenRouter key."))
+        out("  " + err("An API key for %s is required. Run again and paste it, or use --provider to pick another one." % providers.active(cfg)["name"]))
         return 1
-    threading.Thread(target=ensure_models, args=(ctx,), daemon=True).start()
+    start_refresher(ctx)
     if not cfg.get("model_chosen") and not args.prompt and sys.stdin.isatty():
         models_cmd(ctx, interactive=True)
+    if not ctx.cfg.get("model"):
+        auto_pick_model(ctx)
     out()
     banner(ctx)
 

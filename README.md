@@ -210,6 +210,36 @@ tests/          unit, integration and template tests
 
 Issues and pull requests are welcome.
 
+## Providers and keys
+
+Axion Code works with several AI providers. Each provider keeps its own key and its own chosen model.
+
+| Provider | Name for `/provider` | Environment variable |
+|---|---|---|
+| OpenRouter (free models included) | `openrouter` | `OPENROUTER_API_KEY` |
+| Anthropic (Claude) | `anthropic` | `ANTHROPIC_API_KEY` |
+| xAI (Grok) | `xai` or `grok` | `XAI_API_KEY` |
+| OpenAI | `openai` | `OPENAI_API_KEY` |
+| Google Gemini | `gemini` | `GEMINI_API_KEY` |
+| Groq | `groq` | `GROQ_API_KEY` |
+| Mistral | `mistral` | `MISTRAL_API_KEY` |
+| DeepSeek | `deepseek` | `DEEPSEEK_API_KEY` |
+| Together AI | `together` | `TOGETHER_API_KEY` |
+| Cerebras, Fireworks, NVIDIA NIM | `cerebras`, `fireworks`, `nvidia` | `CEREBRAS_API_KEY`, `FIREWORKS_API_KEY`, `NVIDIA_API_KEY` |
+| Ollama, LM Studio (local, no key) | `ollama`, `lmstudio` | none |
+| Any OpenAI-compatible server | `custom` | `AXION_API_KEY` |
+
+`/provider` lists them and switches, `/key [provider]` stores a key, and `python run.py --provider xai` starts with a given provider. When exactly one provider key is found in the environment on the first run, that provider is used. Anthropic is called through its native Messages API; every other provider uses the OpenAI chat-completions format. Paid providers do not switch models on their own unless you turn `/rotate` on.
+
+`/checklimit` shows how much of the allowance is left: credits, the free daily quota and the rate limit for OpenRouter, and the rate-limit headers of the last response for the other providers. `/checklimit probe` reads them with one tiny request. Balances of providers that do not expose them through the API are shown in their console (the link is printed).
+
+The model list of the active provider is refreshed every 12 hours, in the background, and sorted with the most capable models first. The order combines the model family and generation, the size in its name, the context length, the release date and the price, plus how each model performed for you in earlier sessions. It is an estimate, not a benchmark: `/model <n>` or `/model <id>` always wins.
+
+## Skills chosen by the AI
+
+The model decides which skills to load: the system prompt lists every skill in one line, and the model calls `use_skill` for the guides that fit the task. Pin a skill yourself with `/skill use <name>`. `/skill mode auto` brings back the earlier behavior, where Axion scores the request and loads skills itself.
+
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Apache License 2.0 (see `LICENSE` and `NOTICE`). It grants an explicit patent license, requires the notice to stay with redistributions, and does not grant the right to use the project's name. Versions before 1.3.0 were published under the MIT License. This is a summary, not legal advice.
+

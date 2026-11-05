@@ -82,6 +82,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 plan = {"title": "Bunny Garden", "summary": "2D bunny game", "features": ["jump", "collect carrots"], "steps": ["write html", "write loop", "verify"]}
                 return sse(self, tool_chunks("submit_plan", json.dumps(plan)))
             if plan_phase: return sse(self, text_chunks("Plan ready."))
+            if not any(tc["function"]["name"] == "use_skill" for m in msgs for tc in (m.get("tool_calls") or [])):
+                return sse(self, tool_chunks("use_skill", json.dumps({"name": "game-skill"})))      # AI mode: the model loads its own skill
             if wrote == 0:
                 return sse(self, tool_chunks("write_file", json.dumps({"path": "bunny-garden.html", "content": '<!DOCTYPE html>\n<html lang="en">\n<head><meta charset="UTF-8"><title>Bunny</title></head>\n<body>\n<canvas id="c"></canvas>\n<script>\n'})))
             if wrote == 1:

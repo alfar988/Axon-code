@@ -11,7 +11,8 @@ from datetime import datetime
 from datetime import timezone
 from pathlib import Path
 
-from axion.config import API_BASE, CONFIG_FILE, DEFAULT_MODEL, HOME_DIR, ROUTER_MODEL, UA
+from axion import providers
+from axion.config import CONFIG_FILE, DEFAULT_MODEL, HOME_DIR, ROUTER_MODEL, UA
 from axion.ui import acc, bold, C_ERR, C_WARN, clip, dim, err, ok, out, paint, rl, Spinner, tw, warn
 from axion.util import rel
 
@@ -36,8 +37,13 @@ class ApiError(Exception):
 class Ctx:
     def __init__(self, cfg, workspace):
         self.cfg = cfg
+        providers.bind(cfg)
         self.ws = Path(os.path.realpath(str(workspace)))
         self.key = None
+        self.rate_info = {}         # provider id -> last rate-limit headers seen
+        self.session_reqs = 0
+        self.models_time = 0.0      # when the model list was fetched
+        self.models_provider = None
         self.auto = False
         self.full_access = False
         self.grants = set()
@@ -51,6 +57,7 @@ class Ctx:
         self.bg = {}
         self.model_list = []
         self.models_all = None
+        self.models_full = []
         self.models_by_id = {}
         self.override = None
         self.fail_ts = {}
@@ -140,22 +147,28 @@ def save_config(cfg):
 
 
 def key_of(ctx):
-    return ctx.key or os.environ.get("OPENROUTER_API_KEY") or ctx.cfg.get("api_key") or ""
+    """The key of the active provider: session key, then environment, then the saved one."""
+    return ctx.key or providers.key_for(ctx.cfg, providers.active(ctx.cfg))
 
 
 def mask_key(k):
     return (k[:9] + "…" + k[-4:]) if len(k) > 16 else "…"
 
 
-def api_get(path, key=None, timeout=20):
+def api_get(path, key=None, timeout=20, provider=None, headers_out=None):
+    """GET {base}{path} on the active (or given) provider. Returns (status, parsed json). Rate-limit headers go to headers_out."""
+    prov = provider or providers.active()
     headers = {"User-Agent": UA, "Accept": "application/json"}
-    if key:
-        headers["Authorization"] = "Bearer " + key
-    req = urllib.request.Request(API_BASE + path, headers=headers)
+    headers.update(providers.auth_headers(prov, key))
+    req = urllib.request.Request(providers.base_url(prov=prov) + path, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=timeout) as r:
+            if headers_out is not None:
+                headers_out.update(providers.pick_limit_headers(r.getheaders()))
             return r.status, json.loads(r.read().decode("utf-8", "replace") or "{}")
     except urllib.error.HTTPError as e:
+        if headers_out is not None:
+            headers_out.update(providers.pick_limit_headers(e.headers.items()))
         try:
             return e.code, json.loads(e.read().decode("utf-8", "replace") or "{}")
         except Exception:
@@ -164,21 +177,27 @@ def api_get(path, key=None, timeout=20):
         return None, {"error": str(e)}
 
 
-def validate_key(key):
-    st, data = api_get("/key", key)
-    if st == 200:
-        return "ok", (data.get("data") if isinstance(data, dict) and "data" in data else data) or {}
+def validate_key(key, provider=None):
+    """Returns ("ok" | "invalid" | "unknown", info). OpenRouter has a key endpoint; the others are checked with the model list."""
+    prov = provider or providers.active()
+    if prov["id"] == "openrouter":
+        st, data = api_get("/key", key, provider=prov)
+        if st == 200:
+            return "ok", (data.get("data") if isinstance(data, dict) and "data" in data else data) or {}
+    else:
+        st, data = api_get("/models", key, provider=prov)
+        if st == 200:
+            return "ok", {}
     if st in (401, 403):
         return "invalid", {}
     return "unknown", {"status": st}
 
 
-def ensure_key(ctx, force=False):
-    if key_of(ctx) and not force:
-        return True
+def prompt_key(ctx, prov):
     out()
-    out("  " + bold("API key OpenRouter"))
-    out("  " + dim("Create one for free at ") + acc("https://openrouter.ai/keys"))
+    out("  " + bold("API key · " + prov["name"]))
+    if prov["keys_url"]:
+        out("  " + dim("Create one at ") + acc(prov["keys_url"]))
     out("  " + dim("Paste the key and press Enter (input is hidden)."))
     for _ in range(3):
         try:
@@ -188,14 +207,16 @@ def ensure_key(ctx, force=False):
         k = k.replace("Bearer ", "").strip().strip("'\"")
         if not k:
             return False
+        if prov["prefix"] and not k.startswith(prov["prefix"]):
+            out("  " + warn("! this key does not start with %s, checking it anyway" % prov["prefix"]))
         sp = Spinner("checking key")
         sp.start()
-        state, info = validate_key(k)
+        state, info = validate_key(k, prov)
         sp.stop()
         if state == "invalid":
-            out("  " + err("✗ OpenRouter rejected the key.") + dim(" Make sure it is complete and starts with sk-or-"))
+            out("  " + err("✗ %s rejected the key." % prov["name"]) + dim(" Make sure it is complete."))
             continue
-        ctx.cfg["api_key"] = k
+        providers.save_key(ctx.cfg, prov, k)
         ctx.key = k
         if isinstance(info, dict):
             fd = info.get("free_model_daily_requests")
@@ -211,6 +232,15 @@ def ensure_key(ctx, force=False):
     return False
 
 
+def ensure_key(ctx, force=False):
+    prov = providers.active(ctx.cfg)
+    if not providers.needs_key(prov):
+        return True
+    if key_of(ctx) and not force:
+        return True
+    return prompt_key(ctx, prov)
+
+
 def today_utc():
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
@@ -221,6 +251,10 @@ def bump_req(ctx):
         u.clear()
         u.update({"d": today_utc(), "n": 0})
     u["n"] = u.get("n", 0) + 1
+    ctx.session_reqs += 1
+    per = u.setdefault("p", {})
+    pid = providers.active(ctx.cfg)["id"]
+    per[pid] = per.get(pid, 0) + 1
 
 
 def req_today(ctx):
@@ -228,8 +262,14 @@ def req_today(ctx):
     return u.get("n", 0) if u.get("d") == today_utc() else 0
 
 
+def req_today_for(ctx, pid):
+    u = ctx.cfg.get("req_day") or {}
+    return (u.get("p") or {}).get(pid, 0) if u.get("d") == today_utc() else 0
+
+
 def is_free_model(model):
-    return str(model).endswith(":free") or model == ROUTER_MODEL
+    """Only OpenRouter has free-tier models and a daily free quota."""
+    return providers.active()["id"] == "openrouter" and (str(model).endswith(":free") or model == ROUTER_MODEL)
 
 
 # --- secrets: store other API keys; the model only sees {{NAME}} ---------------
@@ -261,9 +301,12 @@ def expand_secrets(ctx, obj):
 
 def redact(ctx, text):
     pairs = list(secret_values(ctx).items())
-    k = key_of(ctx)
-    if k:
-        pairs.append(("OPENROUTER_API_KEY", k))
+    for prov in providers.PROVIDERS:
+        k = providers.key_for(ctx.cfg, prov)
+        if k:
+            pairs.append(((prov["env"][0] if prov["env"] else prov["id"].upper() + "_API_KEY"), k))
+    if ctx.key:
+        pairs.append(("API_KEY", ctx.key))
     for name, val in pairs:
         if val and len(val) >= 6:
             text = text.replace(val, "{{%s}}" % name)

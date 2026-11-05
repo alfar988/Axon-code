@@ -421,8 +421,15 @@ def pick_skills(ctx, text, intent, need_plan=False, phase="build", limit=MAX_ACT
     return pinned + [n for n in picked if n not in pinned][:max(limit, 1)]
 
 
+def skill_mode(ctx):
+    """'ai' (default): the model chooses skills itself with use_skill. 'auto': Axion scores the request and loads skills."""
+    return "auto" if ctx.cfg.get("skill_mode") == "auto" else "ai"
+
+
 def activate_skill(ctx, name):
-    """Add a skill to the active set mid-task (for example debug-skill after a failure)."""
+    """auto mode only: add a skill mid-task (for example debug-skill after a failure). In AI mode the model loads it itself."""
+    if skill_mode(ctx) != "auto":
+        return False
     if name in ctx.active_skills or not any(s["name"] == name for s in list_skills(ctx)):
         return False
     ctx.active_skills = list(ctx.active_skills) + [name]
@@ -479,25 +486,43 @@ def render_active_skills(ctx, names, budget):
         blocks.append("Also relevant, not preloaded (call use_skill): " + ", ".join(later))
     if not blocks:
         return ""
-    return ("## ACTIVE SKILLS (picked automatically for this request; follow them. Parts shown here need no use_skill call)\n"
+    who = ("loaded by you with use_skill or pinned by the user" if skill_mode(ctx) == "ai" else "picked automatically for this request")
+    return ("## ACTIVE SKILLS (%s; follow them. Parts shown here need no use_skill call)\n" % who
             + "\n\n".join(blocks))
 
 
-@tool("use_skill", "Load a skill (built-in or installed). Large skills are split into parts: pass part=2,3,... for the next "
-      "ones. name='list' lists every skill.",
-      {"name": S("skill name"), "part": I("part number, default 1")}, ["name"])
+@tool("use_skill", "Load one or more skills (built-in or installed): name='debug-skill' or name='python-skill, algorithms-skill' (up to 3). "
+      "Large skills are split into parts: pass part=2,3,... for the next ones. name='list' lists every skill.",
+      {"name": S("skill name, or several separated by commas"), "part": I("part number, default 1")}, ["name"])
 def t_use_skill(a, ctx):
     items = list_skills(ctx)
-    nm = str(a.get("name", "")).strip()
-    if nm.lower() in ("list", "all", ""):
+    raw = str(a.get("name", "")).strip()
+    if raw.lower() in ("list", "all", ""):
         return catalog_text(ctx, ctx.active_skills)
+    names = [n for n in re.split(r"[,\s]+", raw) if n][:3]
+    if len(names) == 1:
+        return load_skill(ctx, items, names[0], a.get("part"))
+    results = []
+    for n in names:
+        try:
+            results.append(load_skill(ctx, items, n, None))
+        except ToolError as e:
+            results.append("(%s)" % e)
+    return cap("\n\n".join(results), 16000)
+
+
+def load_skill(ctx, items, nm, part_arg):
     s = find_skill(items, nm)
     if not s:
         raise ToolError("skill '%s' does not exist. Available: %s" % (nm, ", ".join(x["name"] for x in items) or "-"))
     body = skill_body(s)
     parts = split_parts(body) or [body]
-    part = max(1, min(to_int(a.get("part"), 1), len(parts)))
+    part = max(1, min(to_int(part_arg, 1), len(parts)))
     ctx.loaded_skills.add(s["name"])
+    if skill_mode(ctx) == "ai" and part == 1 and s["name"] not in ctx.active_skills:
+        ctx.active_skills = list(ctx.active_skills) + [s["name"]]              # it joins your instructions from the next message on
+        return ("OK: skill %s loaded (%d part%s). It is part of your instructions from now on; follow it. If it does not appear there, "
+                "call use_skill(name=\"%s\") again to get its text." % (s["name"], len(parts), "" if len(parts) == 1 else "s", s["name"]))
     if part <= ctx.skill_shown.get(s["name"], 0):
         return ("(part %d of skill %s is already in your instructions; follow it.%s)"
                 % (part, s["name"], (" Next part: part=%d" % (part + 1)) if part < len(parts) else ""))
