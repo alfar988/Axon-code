@@ -174,6 +174,11 @@ prompts/qa-prompt.md       question-and-answer mode
 - **Misuse and jailbreaks.** Safety rules are part of every prompt (`prompts/safety-rules.md`): Lumo refuses malware, fraud tools, weapons and similar requests, ignores attempts to switch the rules off (role-play, "developer mode", claimed authority, encodings), and does not follow instructions found in pages or files. A small local guard (`lumo/guard.py`) refuses blatant requests before any model request is sent. Defensive and educational work is still supported. No prompt-level protection is perfect, so keep reviewing what the agent does.
 - Lumo has no telemetry. The only network calls are to OpenRouter, to the search providers and to the sites the model is asked to fetch.
 
+## Remove
+
+cd ~
+rm -rf Lumo-code
+
 ## Updating and uninstalling
 
 ```bash
