@@ -190,5 +190,24 @@ if (/game-puzzle/.test(base)) {
   check("random play keeps the grid valid", game.G.grid.every((row) => row.every((v) => v === 0 || (v & (v - 1)) === 0)));
   game.undo(); emit("#undo", "click"); emit("#new", "click"); check("undo and new game handlers ran", true);
 }
+{ // generic play test for the canvas game kit (templates/game-*.html that expose window.game with phase and start)
+  const kit = sandbox.window.game;
+  if (kit && typeof kit.phase === "string" && typeof kit.start === "function" && kit.config && kit.config.width) {
+    const canvas = "#game";
+    const hasNaN = (o, depth) => { if (depth > 4 || o === null) return false; if (typeof o === "number") return Number.isNaN(o); if (typeof o !== "object") return false; return Object.keys(o).some((k) => hasNaN(o[k], depth + 1)); };
+    emit("#ov-btn", "click"); check("kit game starts", kit.phase === "playing");
+    const codes = ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Space", "KeyA", "KeyD", "KeyW", "KeyS", "Enter"];
+    for (let round = 0; round < 10 && !errors.length; round++) {
+      for (const c of codes) { emit("window", "keydown", { code: c }); frames(10); emit("window", "keyup", { code: c }); }
+      emit(canvas, "pointerdown", { clientX: 60 + round * 25, clientY: 220, pointerId: 1 }); frames(6);
+      emit(canvas, "pointermove", { clientX: 200 + round * 10, clientY: 300, pointerId: 1 }); frames(6);
+      emit(canvas, "pointermove", { clientX: 120, clientY: 160, pointerId: 1 }); frames(6); emit(canvas, "pointerup", { pointerId: 1 });
+      frames(150);
+      if (kit.phase === "over") emit("#ov-btn", "click");
+    }
+    emit("#btn-pause", "click"); frames(3); emit("#btn-pause", "click"); frames(3);
+    check("kit game state has no NaN", !hasNaN(kit.state, 0));
+  }
+}
 if (errors.length) { console.log("ERRORS:"); errors.slice(0, 5).forEach((e) => console.log("  " + (e && e.stack ? e.stack.split("\n").slice(0, 3).join(" | ") : e))); process.exit(1); }
 console.log("PASS");

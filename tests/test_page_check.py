@@ -1,5 +1,6 @@
 """scripts/page_check.js must pass the shipped templates and catch the failures that give a blank or frozen screen."""
 
+import json
 import shutil
 import subprocess
 import tempfile
@@ -35,7 +36,8 @@ class PageCheck(unittest.TestCase):
             return r.returncode, r.stdout + r.stderr
 
     def test_shipped_templates_pass(self):
-        for name in ("game-2d", "game-puzzle", "game-3d", "web-app", "dashboard", "web-landing", "docs-site"):
+        man = json.loads((ROOT / "templates" / "manifest.json").read_text(encoding="utf-8"))["templates"]
+        for name in [k for k, v in man.items() if v["file"].endswith(".html")]:
             r = subprocess.run(["node", str(SCRIPT), str(ROOT / "templates" / (name + ".html"))], capture_output=True, text=True, timeout=120)
             self.assertEqual(r.returncode, 0, name + "\n" + r.stdout + r.stderr)
         r = subprocess.run(["node", str(SCRIPT), str(ROOT / "templates" / "game-2d.html")], capture_output=True, text=True, timeout=120)

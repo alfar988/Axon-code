@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<!--
+  TEMPLATE game-runner: endless runner with one-button jump (obstacles that speed up, distance score, parallax ground)
+  Engine kit (keep): DPR-aware canvas scaling, clamped time step, keyboard + pointer + on-screen buttons, HUD, start/pause/game-over overlay,
+  best score in localStorage (guarded), optional sound. Replace the runner, the obstacles and the backdrop; spawning and speed are in update().
+  Adapt it by replacing CONFIG, newState(), update() and draw(). Keep it ONE file.
+-->
+<html lang="__LANG__">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0f1318">
+<title>__TITLE__</title>
+<style>
+  :root {
+    --bg: #0f1318; --panel: #171d25; --line: #263040; --ink: #eef2f6; --muted: #9aa7b6;
+    --accent: __ACCENT__; --accent-ink: #08140f; --danger: #ff6b6b; --radius: 14px;
+    --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font); overflow: hidden; overscroll-behavior: none; }
+  body {
+    height: 100vh; height: 100dvh; touch-action: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+  #stage { position: relative; width: 100%; height: 100%; display: grid; place-items: center; }
+  canvas { display: block; background: #0b0f13; border-radius: 8px; touch-action: none; }
+  #hud { position: absolute; top: max(env(safe-area-inset-top), 8px); left: 8px; right: 8px; display: flex; gap: 12px; align-items: center; pointer-events: none; z-index: 2; }
+  .stat { display: flex; flex-direction: column; line-height: 1.1; min-width: 52px; }
+  .stat .k { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .stat .v { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .pips { color: var(--danger); letter-spacing: 2px; font-size: 16px; min-height: 24px; }
+  #hud .grow { flex: 1; }
+  .icon { pointer-events: auto; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: rgba(23,29,37,.85); color: var(--ink);
+          display: grid; place-items: center; cursor: pointer; }
+  .icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .icon:hover { border-color: var(--accent); }
+  .icon[aria-pressed="true"] { color: var(--muted); }
+  .icon:focus-visible, .btn:focus-visible, .pad:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .controls { position: absolute; left: 0; right: 0; bottom: max(env(safe-area-inset-bottom), 12px); display: flex; justify-content: space-between; align-items: flex-end;
+              padding: 0 14px; gap: 10px; pointer-events: none; z-index: 2; }
+  .controls .group { display: flex; gap: 10px; }
+  .pad { pointer-events: auto; width: 64px; height: 64px; border-radius: 50%; border: 1px solid var(--line); background: rgba(23,29,37,.8); color: var(--ink);
+         font: 700 20px var(--font); cursor: pointer; touch-action: none; display: grid; place-items: center; }
+  .pad:active { background: var(--accent); color: var(--accent-ink); }
+  #overlay { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(8,11,15,.72); z-index: 3; padding: 16px; }
+  #overlay[hidden] { display: none; }
+  .card { width: min(92vw, 380px); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px 22px; text-align: center; display: grid; gap: 12px; }
+  .card h1 { font-size: clamp(24px, 6vw, 32px); letter-spacing: -.01em; }
+  .card p { color: var(--muted); font-size: 15px; line-height: 1.5; }
+  .card .big { color: var(--ink); font-size: 36px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .btn { min-height: 48px; padding: 0 22px; border: 0; border-radius: 12px; background: var(--accent); color: var(--accent-ink); font: 700 16px var(--font); cursor: pointer; touch-action: manipulation; }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active { transform: translateY(1px); }
+  @media (prefers-reduced-motion: reduce) { .btn:active { transform: none; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" aria-label="Game area"></canvas>
+  <header id="hud">
+    <div class="stat"><span class="k">Score</span><span class="v" id="hud-score">0</span></div>
+    <div class="stat"><span class="k">Best</span><span class="v" id="hud-best">0</span></div>
+    <div class="stat" id="stat-lives" hidden><span class="k">Lives</span><span class="v pips" id="hud-lives" role="img" aria-label="lives left"></span></div>
+    <div class="stat" id="stat-extra" hidden><span class="k" id="extra-k">Time</span><span class="v" id="hud-extra">0</span></div>
+    <span class="grow"></span>
+    <button class="icon" id="btn-mute" type="button" aria-label="Toggle sound" aria-pressed="false">
+      <svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>
+    </button>
+    <button class="icon" id="btn-pause" type="button" aria-label="Pause">
+      <svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></svg>
+    </button>
+  </header>
+  <div id="overlay" role="dialog" aria-modal="true" aria-labelledby="ov-title">
+    <div class="card">
+      <h1 id="ov-title">__TITLE__</h1>
+      <div class="big" id="ov-big" hidden></div>
+      <p id="ov-text"></p>
+      <p id="ov-help"></p>
+      <button class="btn" id="ov-btn" type="button">Play</button>
+    </div>
+  </div>
+</div>
+<noscript>This game needs JavaScript.</noscript>
+<script>
+(function () {
+"use strict";
+const CONFIG = { width: 360, height: 480, lives: 0, intro: "Run as far as you can and jump the obstacles.", help: "Tap, press Space or the up arrow to jump." };
+const GROUND = 400, GRAV = 1900, JUMP = 680, PX = 60, PW = 28, PH = 40;
+function newState() { return { y: GROUND, vy: 0, onGround: true, obstacles: [], next: 1.0, speed: 220, dist: 0, t: 0 }; }
+function update(dt) {
+  const s = state;
+  s.t += dt; s.speed = Math.min(520, 220 + s.t * 7); s.dist += s.speed * dt;
+  score = Math.floor(s.dist / 10); hud();
+  const jump = pointer.tapped || keys.Space || keys.ArrowUp || keys.KeyW;
+  if (jump && s.onGround) { s.vy = -JUMP; s.onGround = false; beep(480, 0.05); }
+  s.vy += GRAV * dt; s.y += s.vy * dt;
+  if (s.y >= GROUND) { s.y = GROUND; s.vy = 0; s.onGround = true; }
+  s.next -= dt;
+  if (s.next <= 0) { s.obstacles.push({ x: W + 20, w: rnd(20, 36), h: rnd(26, 62) }); s.next = rnd(0.9, 1.6) * (260 / s.speed) + 0.35; }
+  for (const o of s.obstacles) o.x -= s.speed * dt;
+  s.obstacles = s.obstacles.filter((o) => o.x + o.w > -10);
+  for (const o of s.obstacles) {
+    if (PX + PW - 4 > o.x && PX + 4 < o.x + o.w && s.y > GROUND - o.h + 4) { gameOver(); return; }
+  }
+}
+function draw() {
+  const s = state;
+  ctx.fillStyle = "#121a23"; ctx.fillRect(0, GROUND, W, H - GROUND);
+  ctx.fillStyle = "rgba(255,255,255,.08)";
+  for (let x = -((s.dist * 0.5) % 60); x < W; x += 60) ctx.fillRect(x, GROUND + 18, 28, 3);
+  for (let x = -((s.dist * 0.15) % 140); x < W; x += 140) rrect(x, 300, 70, 14, 7, "rgba(255,255,255,.05)");
+  rrect(PX, s.y - PH, PW, PH, 8, ACCENT);
+  ctx.fillStyle = "#0b0f13"; ctx.fillRect(PX + 17, s.y - PH + 10, 5, 5);
+  s.obstacles.forEach((o) => rrect(o.x, GROUND - o.h, o.w, o.h, 5, "#ff6b6b"));
+}
+
+/* ===================== ENGINE KIT (keep): canvas scaling, loop, input, HUD, overlay, best score, sound ===================== */
+const W = CONFIG.width, H = CONFIG.height, TOP = CONFIG.top === undefined ? 56 : CONFIG.top, ACCENT = "__ACCENT__", STORE = "lumo-runner-best";   // TOP: band for the HUD
+const $ = (id) => document.getElementById(id);
+const canvas = $("game"), ctx = canvas.getContext("2d");
+const view = { scale: 1, dpr: 1 };
+const keys = {};
+const pointer = { x: W / 2, y: H / 2, sx: 0, sy: 0, down: false, tapped: false };
+let phase = "ready", state = null, score = 0, best = 0, lives = 0, last = 0, muted = false, audio = null;
+
+function resize() {
+  const vw = Math.max(1, window.innerWidth), vh = Math.max(1, window.innerHeight);
+  view.scale = Math.min(vw / W, vh / (H + TOP));
+  view.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.style.width = Math.floor(W * view.scale) + "px";
+  canvas.style.height = Math.floor((H + TOP) * view.scale) + "px";
+  canvas.width = Math.max(1, Math.floor(W * view.scale * view.dpr));
+  canvas.height = Math.max(1, Math.floor((H + TOP) * view.scale * view.dpr));
+}
+function rnd(a, b) { return a + Math.random() * (b - a); }
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+function text(str, x, y, size, color, align) {
+  ctx.font = "700 " + size + "px system-ui, sans-serif"; ctx.fillStyle = color || "#eef2f6"; ctx.textAlign = align || "center"; ctx.textBaseline = "middle";
+  ctx.fillText(str, x, y);
+}
+function rrect(x, y, w, h, r, color) {
+  r = Math.min(r, w / 2, h / 2);
+  ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+}
+function beep(freq, dur) {
+  if (muted) return;
+  try {
+    audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audio.createOscillator(), g = audio.createGain();
+    o.frequency.value = freq; g.gain.value = 0.05; o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime + dur);
+  } catch (e) { /* sound is optional */ }
+}
+function swipe(th) {          // "left" | "right" | "up" | "down" once per drag of at least th logical pixels, else null
+  if (!pointer.down) return null;
+  const dx = pointer.x - pointer.sx, dy = pointer.y - pointer.sy;
+  if (Math.abs(dx) < th && Math.abs(dy) < th) return null;
+  pointer.sx = pointer.x; pointer.sy = pointer.y;
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up");
+}
+function hud() {
+  $("hud-score").textContent = String(Math.floor(score));
+  $("hud-best").textContent = String(best);
+  if (CONFIG.lives > 0) $("hud-lives").textContent = "●".repeat(Math.max(0, lives)) + "○".repeat(Math.max(0, CONFIG.lives - lives));
+}
+function setExtra(v) { $("hud-extra").textContent = String(v); }
+function addScore(n) { score += n; hud(); }
+function saveBest() { try { localStorage.setItem(STORE, String(best)); } catch (e) { /* storage may be blocked */ } }
+function showOverlay(title, body, big, btn) {
+  $("ov-title").textContent = title; $("ov-text").textContent = body || ""; $("ov-help").textContent = phase === "ready" ? (CONFIG.help || "") : "";
+  $("ov-big").hidden = !big; $("ov-big").textContent = big || ""; $("ov-btn").textContent = btn; $("overlay").hidden = false;
+}
+function hideOverlay() { $("overlay").hidden = true; }
+function begin() {
+  if (phase === "paused") { phase = "playing"; hideOverlay(); return; }
+  state = newState(); score = 0; lives = CONFIG.lives; phase = "playing"; pointer.tapped = false; hideOverlay(); hud();
+  if (typeof onStart === "function") onStart();
+}
+function togglePause() {
+  if (phase === "playing") { phase = "paused"; showOverlay("Paused", "", "", "Resume"); }
+  else if (phase === "paused") begin();
+}
+function gameOver(message) {
+  phase = "over"; if (score > best) { best = Math.floor(score); saveBest(); } hud(); beep(140, 0.25);
+  showOverlay("Game over", (message ? message + " " : "") + "Best: " + best, String(Math.floor(score)), "Play again");
+}
+function loseLife() {
+  lives -= 1; hud(); beep(180, 0.15);
+  if (lives <= 0) gameOver();
+}
+function frame(t) {
+  const dt = Math.min(50, Math.max(0, t - last)) / 1000; last = t;
+  if (phase === "playing") update(dt);
+  ctx.setTransform(view.scale * view.dpr, 0, 0, view.scale * view.dpr, 0, 0);
+  ctx.fillStyle = "#0b0f13"; ctx.fillRect(0, 0, W, H + TOP);
+  ctx.translate(0, TOP);
+  draw();
+  pointer.tapped = false;
+  requestAnimationFrame(frame);
+}
+
+window.addEventListener("resize", resize);
+window.addEventListener("keydown", (e) => {
+  keys[e.code] = true;
+  if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].indexOf(e.code) >= 0) e.preventDefault();
+  if (e.code === "KeyP" || e.code === "Escape") togglePause();
+  else if ((e.code === "Enter" || e.code === "Space") && phase !== "playing") begin();
+});
+window.addEventListener("keyup", (e) => { keys[e.code] = false; });
+function toLogical(e) {
+  const r = canvas.getBoundingClientRect();
+  pointer.x = (e.clientX - r.left) * W / Math.max(1, r.width); pointer.y = (e.clientY - r.top) * (H + TOP) / Math.max(1, r.height) - TOP;
+}
+canvas.addEventListener("pointerdown", (e) => { toLogical(e); pointer.sx = pointer.x; pointer.sy = pointer.y; pointer.down = true; pointer.tapped = true; });
+canvas.addEventListener("pointermove", (e) => { toLogical(e); });
+window.addEventListener("pointerup", () => { pointer.down = false; });
+window.addEventListener("pointercancel", () => { pointer.down = false; });
+document.querySelectorAll("[data-key]").forEach((el) => {      // on-screen buttons act like keys
+  const k = el.getAttribute("data-key");
+  el.addEventListener("pointerdown", (e) => { e.preventDefault(); keys[k] = true; });
+  const off = () => { keys[k] = false; };
+  el.addEventListener("pointerup", off); el.addEventListener("pointerleave", off); el.addEventListener("pointercancel", off);
+});
+$("ov-btn").addEventListener("click", begin);
+$("btn-pause").addEventListener("click", togglePause);
+$("btn-mute").addEventListener("click", () => { muted = !muted; $("btn-mute").setAttribute("aria-pressed", String(muted)); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && phase === "playing") togglePause(); });
+
+try { best = Number(localStorage.getItem(STORE)) || 0; } catch (e) { best = 0; }
+$("stat-lives").hidden = !(CONFIG.lives > 0);
+if (CONFIG.extra) { $("stat-extra").hidden = false; $("extra-k").textContent = CONFIG.extra; }
+document.title = document.title || "Game";
+resize();
+state = newState();
+showOverlay(document.title, CONFIG.intro || "", "", "Play");
+hud();
+window.game = { get state() { return state; }, get phase() { return phase; }, start: begin, pause: togglePause, config: CONFIG };
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

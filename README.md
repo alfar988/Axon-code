@@ -9,7 +9,7 @@ It was built to run well in Termux on a phone (narrow output, no heavy dependenc
 ## What it does
 
 - **Builds things end to end:** games (2D canvas and 3D Three.js), websites, web apps, APIs, bots, scripts.
-- **Starts from tested templates** instead of improvising an engine: twelve starters (2D, 3D and puzzle games, landing page, app shell, dashboard, documentation site, Python and Node JSON APIs, command-line tool, Telegram bot, scraper). The code starters carry a self test.
+- **Starts from tested templates** instead of improvising an engine: sixteen starters (2D, 3D, snake, breakout, runner, flappy and puzzle games, landing page, app shell, dashboard, documentation site, Python and Node JSON APIs, command-line tool, Telegram bot, scraper). The code starters carry a self test.
 - **Researches the web:** searches through several providers with automatic fallback (web, news, code, Q&A, docs, packages, papers), reads pages in parallel, cites sources and looks up exact package versions. There is no cap on the number of searches.
 - **Learns from its work:** after it fixes a non-obvious error it can save a lesson, applies relevant lessons in later sessions, and can write a new skill for a procedure it expects to repeat (it asks first). You can review and delete everything with `/lessons`.
 - **Checks its own work:** syntax, undefined functions and variables, broken HTML, and a static UI review (responsive layout, accessibility, WCAG color contrast, generic "AI look") before it says it is done.
@@ -17,12 +17,6 @@ It was built to run well in Termux on a phone (narrow output, no heavy dependenc
 - **Uses skills:** 32 guides with working code examples, good and bad examples and troubleshooting steps, chosen for each request.
 - **Copes with unreliable free models:** automatic fallback to other models, rate-limit cooldowns, repair of broken tool-call JSON, recovery from cut-off output.
 - **Stays inside your workspace** unless you approve otherwise, and deletes to a recoverable trash.
-
-## device support
-
-Lumo AI can be run on Android devices and desktops.
-
-can be 32 bit and 64 bit
 
 ## Requirements
 
@@ -244,7 +238,6 @@ Lumo Code works with several AI providers. Each provider keeps its own key and i
 
 The model list of the active provider is refreshed every 12 hours, in the background, and sorted with the most capable models first. The order combines the model family and generation, the size in its name, the context length, the release date and the price, plus how each model performed for you in earlier sessions. It is an estimate, not a benchmark: `/model <n>` or `/model <id>` always wins.
 
-
 ## Skills chosen by the AI
 
 The model decides which skills to load: the system prompt lists every skill in one line, and the model calls `use_skill` for the guides that fit the task. Pin a skill yourself with `/skill use <name>`. `/skill mode auto` brings back the earlier behavior, where Lumo scores the request and loads skills itself.
@@ -253,9 +246,3 @@ The model decides which skills to load: the system prompt lists every skill in o
 
 Apache License 2.0 (see `LICENSE` and `NOTICE`). It grants an explicit patent license, requires the notice to stay with redistributions, and does not grant the right to use the project's name. Versions before 1.3.0 were published under the MIT License. This is a summary, not legal advice.
 
-
-
-
-
-
-(base code by alfar988. lumo-code)

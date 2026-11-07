@@ -207,6 +207,74 @@
         "Add only the mechanics the request names or clearly implies (a shuffle, levels, a move limit); leave the rest out.",
         "Keep the pure functions testable and update the checks in tests/dom_harness.js style if you change their signatures; keep touch targets at 44px and the reduced-motion rule."
       ]
+    },
+    "game-snake": {
+      "file": "game-snake.html",
+      "default_path": "index.html",
+      "desc": "grid snake that speeds up as it grows (swipe, arrow keys, WASD, on-screen arrows, wall and self collision, best score)",
+      "vars": {
+        "TITLE": "Snake",
+        "ACCENT": "#3ddc97",
+        "LANG": "en"
+      },
+      "guide": "Keep the engine kit at the bottom of the script (canvas scaling, loop, input, HUD, overlay, best score, sound). Replace CONFIG, newState(), update() and draw() with your own food, theme and speed rules.",
+      "min_novelty": 0.3,
+      "customize": [
+        "Change the creature, the food and the board to the request (a worm, a train, a river of boats), with matching colors and a speed curve that suits it.",
+        "Add only the mechanics the request names or clearly implies; leave the rest out.",
+        "Keep the first-frame draw, the 44px touch targets, the pause when the page is hidden and the reduced-motion rule."
+      ]
+    },
+    "game-breakout": {
+      "file": "game-breakout.html",
+      "default_path": "index.html",
+      "desc": "paddle, ball and bricks (drag or keys, angle depends on where the ball hits the paddle, levels, three lives)",
+      "vars": {
+        "TITLE": "Brick Break",
+        "ACCENT": "#5ccfe6",
+        "LANG": "en"
+      },
+      "guide": "Keep the engine kit at the bottom of the script (canvas scaling, loop, input, HUD, overlay, best score, sound). Replace CONFIG, newState(), update() and draw() with your own brick layout, colors and power-ups.",
+      "min_novelty": 0.3,
+      "customize": [
+        "Change the bricks, the paddle and the ball to the request's theme (planks, bubbles, ice blocks) and set the layouts per level.",
+        "Add only the mechanics the request names or clearly implies; leave the rest out.",
+        "Keep the first-frame draw, the 44px touch targets, the pause when the page is hidden and the reduced-motion rule."
+      ]
+    },
+    "game-runner": {
+      "file": "game-runner.html",
+      "default_path": "index.html",
+      "desc": "endless runner with one-button jump (obstacles that speed up, distance score, parallax ground)",
+      "vars": {
+        "TITLE": "Sprint",
+        "ACCENT": "#ffb454",
+        "LANG": "en"
+      },
+      "guide": "Keep the engine kit at the bottom of the script (canvas scaling, loop, input, HUD, overlay, best score, sound). Replace CONFIG, newState(), update() and draw() with your own runner, obstacles and backdrop.",
+      "min_novelty": 0.3,
+      "customize": [
+        "Change the runner, the obstacles and the scenery to the request (a cat on rooftops, a rocket in an asteroid belt) and tune the speed curve.",
+        "Add only the mechanics the request names or clearly implies; leave the rest out.",
+        "Keep the first-frame draw, the 44px touch targets, the pause when the page is hidden and the reduced-motion rule."
+      ]
+    },
+    "game-flappy": {
+      "file": "game-flappy.html",
+      "default_path": "index.html",
+      "desc": "one-tap flyer through gaps in pipes (gravity, flap impulse, gap that stays fair, pass-by scoring)",
+      "vars": {
+        "TITLE": "Flap",
+        "ACCENT": "#ffd166",
+        "LANG": "en"
+      },
+      "guide": "Keep the engine kit at the bottom of the script (canvas scaling, loop, input, HUD, overlay, best score, sound). Replace CONFIG, newState(), update() and draw() with your own flyer, obstacles and theme.",
+      "min_novelty": 0.3,
+      "customize": [
+        "Change the flyer, the obstacles and the world to the request (a balloon between towers, a fish between reeds) and the colors to match.",
+        "Add only the mechanics the request names or clearly implies; leave the rest out.",
+        "Keep the first-frame draw, the 44px touch targets, the pause when the page is hidden and the reduced-motion rule."
+      ]
     }
   }
 }

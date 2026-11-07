@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.7.0] - 2026-11-07
+
+### Added
+- Four new game templates built on one shared engine kit (canvas scaling, clamped time step, keyboard, pointer and on-screen buttons, HUD, start, pause and game-over screens, guarded best score, optional sound): `game-snake`, `game-breakout`, `game-runner` and `game-flappy`.
+- The Node harness now plays every template that uses the kit (presses keys, drags, plays until game over, restarts, pauses) and fails on errors or NaN values, and the page check runs for every shipped HTML template instead of a fixed list.
+
 ## [1.6.0] - 2026-11-07
 
 ### Added
