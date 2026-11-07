@@ -177,6 +177,7 @@ prompts/qa-prompt.md       question-and-answer mode
 ## Remove
 
 cd ~
+
 rm -rf Lumo-code
 
 ## Updating and uninstalling
