@@ -147,7 +147,7 @@ def banner(ctx):
     out("  " + dim("access     ") + chip + dim(" · outside the workspace: ask"))
     out("  " + dim("memory     ") + "history/" + dim(" (automatic)"))
     if safelimit.active():
-        out("  " + dim("saver      ") + ok("on") + dim(" · fewer requests and tokens"))
+        out("  " + dim("saver      ") + ok(safelimit.label()) + dim(" · fewer requests and tokens"))
     out(rule())
     out("  " + dim("Describe what to build or fix.  /help · /models · /checklimit · /provider"))
     if ctx.cfg.get("model") == ROUTER_MODEL:

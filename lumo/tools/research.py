@@ -118,7 +118,7 @@ def _auto_queries(question, queries):
         short = " ".join(keywords(question)[:7])
         if short and short.lower() != qs[0].lower():
             qs.append(short)
-    return qs[:safelimit.pick(6, safelimit.RESEARCH_QUERIES)]
+    return qs[:safelimit.get("research_queries", 6)]
 
 
 @tool("deep_research",
@@ -140,8 +140,8 @@ def t_deep_research(a, ctx):
     kind = str(a.get("kind") or "general").lower()
     if kind not in engine.KINDS:
         kind = "general"
-    n_src = max(3, min(to_int(a.get("max_sources"), safelimit.pick(6, safelimit.RESEARCH_SOURCES)),
-                       safelimit.pick(10, safelimit.RESEARCH_SOURCES)))
+    n_src = max(3, min(to_int(a.get("max_sources"), safelimit.get("research_sources", 6)),
+                       safelimit.get("research_sources", 10)))
     tr = a.get("time_range") or None
     keys = keys_of(ctx)
     queries = _auto_queries(question, _as_list(a.get("queries")))

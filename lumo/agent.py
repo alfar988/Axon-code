@@ -326,7 +326,8 @@ def call_model(ctx, phase, tools, on_text, on_status, ui):
 
 def run_agent(ctx, phase, allowed, max_steps, stop_tool=None):
     """Model <-> tool loop. Returns: done | stop_tool | error | limit."""
-    schemas = slim_schemas([t["schema"] for n, t in TOOLS.items() if n in allowed])
+    hidden = safelimit.hidden_tools(ctx.task)
+    schemas = slim_schemas([t["schema"] for n, t in TOOLS.items() if n in allowed and n not in hidden], tight=safelimit.maximum())
     empty = nudges = steps = badjson = trunc = verifs = relogin = err_streak = polish = issue_nudges = 0
     reviewed = False
     while True:
@@ -612,8 +613,8 @@ def plan_phase(ctx, user_text):
     out("  " + dim("research and design first, then write code"))
     ctx.plan = None
     start = len(ctx.messages) - 1
-    allowed = set(PLAN_TOOLS) - (set() if ctx.cfg.get("research", True) else WEB_TOOLS)
-    reason = run_agent(ctx, "plan", allowed, safelimit.pick(PLAN_MAX_STEPS, safelimit.PLAN_STEPS), stop_tool="submit_plan")
+    allowed = set(PLAN_TOOLS) - (set() if ctx.cfg.get("research", True) and not safelimit.maximum() else WEB_TOOLS)
+    reason = run_agent(ctx, "plan", allowed, safelimit.get("plan_steps", PLAN_MAX_STEPS), stop_tool="submit_plan")
     if not ctx.plan and reason != "error":
         ctx.messages.append({"role": "user", "content": "[system] Call submit_plan now with the complete plan."})
         reason = run_agent(ctx, "plan", allowed, 2, stop_tool="submit_plan")

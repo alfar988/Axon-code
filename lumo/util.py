@@ -63,7 +63,7 @@ def to_int(v, default):
 
 def cap(text, n=None):
     if n is None:
-        n = safelimit.pick(MAX_TOOL_OUTPUT, safelimit.TOOL_OUTPUT)
+        n = safelimit.get("tool_output", MAX_TOOL_OUTPUT)
     if len(text) <= n:
         return text
     h = int(n * 0.7)

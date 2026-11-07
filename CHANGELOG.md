@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.6.0] - 2026-11-07
+
+### Added
+- A second hidden limit saver for the strictest case. It is not listed in `/help`, in Tab completion or in this README. The existing one keeps its name and its balanced behavior (level 1). The new one is the maximum level (level 2): everything level 1 does, with smaller limits, and it also shortens the skill and template lists in the prompt, cuts notes and project text to under half, shortens tool descriptions, leaves out rarely used tools unless the request mentions what they do, archives old history by itself the way `/compact` does (no model request), plans without web research, and asks the model for short answers and as few tool calls as possible. On a typical build request each request is about 30 percent smaller before any history (measured: 16.4k to 11.2k estimated tokens). Error fixing, automatic verification, the template check and the safety rules stay on at every level.
+- The saved choice is `false`, `true` (level 1) or `2` (level 2) in `config.json`; older configs keep working.
+
+## [1.5.0] - 2026-11-07
+
+### Added
+- `/compact` now archives the older part of the conversation. Everything except the newest 15 messages is written to `history/archive/compact-<time>.md` and removed from the history that is sent to the model, so every later request is smaller and the key reaches its limit later. Nothing is deleted: the archive holds the full text and `history/transcript.md` keeps the session log. No model request is used, so it works when the key is rate-limited, and if the archive cannot be written nothing is removed. A short note takes the place of the archived messages: it names the archive and repeats the first request, the last request before the cut and the current task.
+- `/compact summary` keeps the earlier behavior, where the model writes a summary of the earlier conversation. Automatic compaction is unchanged.
+
 ## [1.4.0] - 2026-11-06
 
 ### Changed

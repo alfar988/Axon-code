@@ -236,20 +236,38 @@ def parse_text_tool_calls(text, names):
     return calls, rest.strip()
 
 
-def slim_schemas(schemas):
-    """Shrink tool schemas (saves tokens) and fix ones that strict providers reject (empty properties)."""
+KEEP_FULL_TOOLS = {"write_file", "append_file", "edit_file", "run_shell", "use_template", "submit_plan", "use_skill"}
+
+
+def first_sentences(text, n):
+    """The first sentence, plus the next one when the first is very short, cut to n characters."""
+    parts = re.split(r"(?<=[.!?])\s+", text.strip())
+    out_ = parts[0]
+    if len(out_) < 60 and len(parts) > 1:
+        out_ += " " + parts[1]
+    return out_ if len(out_) <= n else out_[:n - 3] + "..."
+
+
+def slim_schemas(schemas, tight=False):
+    """Shrink tool schemas (saves tokens) and fix ones that strict providers reject (empty properties).
+    tight (maximum limit saver): one or two sentences per tool and short parameter notes. The tools that are easy to
+    misuse (writing, editing, shell, templates, plans, skills) keep their normal text."""
     res = []
     for sc in schemas:
         f = dict(sc["function"])
+        short = tight and f.get("name") not in KEEP_FULL_TOOLS
         d = f.get("description", "")
+        if short:
+            d = first_sentences(d, 150)
         f["description"] = d if len(d) <= 260 else d[:257] + "..."
         params = json.loads(json.dumps(f["parameters"]))
         props = params.get("properties") or {}
         if not props:
             params["properties"] = {"reason": {"type": "string", "description": "optional"}}
+        plim = 56 if short else 110
         for p in props.values():
-            if isinstance(p, dict) and len(p.get("description", "")) > 110:
-                p["description"] = p["description"][:107] + "..."
+            if isinstance(p, dict) and len(p.get("description", "")) > plim:
+                p["description"] = p["description"][:plim - 3] + "..."
         f["parameters"] = params
         res.append({"type": "function", "function": f})
     return res

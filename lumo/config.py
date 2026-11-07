@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 
-VERSION = "1.4.0"
+VERSION = "1.6.0"
 
 
 # Older installs used AXION_* / AXON_* variable names; they still work when the LUMO_* one is not set.
@@ -56,6 +56,7 @@ MAX_TOOL_OUTPUT = 14000    # max characters of a tool result sent to the model
 
 
 COMPACT_AT_CHARS = 110000  # auto-compact the conversation beyond this size
+COMPACT_KEEP = 15          # /compact keeps this many of the newest messages and archives the rest
 
 
 IGNORE_DIRS = {".git", "node_modules", "__pycache__", ".venv", "venv", ".cache",

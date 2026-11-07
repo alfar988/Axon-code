@@ -554,10 +554,15 @@ def cur_est(ctx, phase):
 def guard_context(ctx, phase):
     limit = model_ctx_len(ctx, ctx.cur_model())
     est = cur_est(ctx, phase)
-    if safelimit.active() and est >= safelimit.CONTEXT_TOKENS:
-        local_compact(ctx, keep_last=safelimit.KEEP_LAST)
+    if safelimit.active() and est >= safelimit.get("context_tokens", 0):
+        local_compact(ctx, keep_last=safelimit.get("keep_last", 8))
         est = cur_est(ctx, phase)
-        if est >= safelimit.CONTEXT_TOKENS * 1.4 and len(ctx.messages) > 12:
+        if safelimit.maximum():
+            from lumo.compact import compact_archive, COMPACT_KEEP
+            if est >= safelimit.get("context_tokens", 0) and len(ctx.messages) > COMPACT_KEEP + 6:
+                compact_archive(ctx, quiet=True)               # moves the old part to history/archive/, no model request
+                est = cur_est(ctx, phase)
+        elif est >= safelimit.get("context_tokens", 0) * 1.4 and len(ctx.messages) > 12:
             compact_history(ctx, auto=True)
             est = cur_est(ctx, phase)
     if est < limit * 0.8:
@@ -606,4 +611,4 @@ def out_budget(ctx, model, msgs):
     if ctx.cfg.get("max_tokens"):
         return int(ctx.cfg["max_tokens"])
     room = model_ctx_len(ctx, model) - est_tokens(msgs) - 1024
-    return int(max(2048, min(MAX_OUT_DEFAULT, room, safelimit.pick(MAX_OUT_DEFAULT, safelimit.OUT_TOKENS))))
+    return int(max(2048, min(MAX_OUT_DEFAULT, room, safelimit.get("out_tokens", MAX_OUT_DEFAULT))))

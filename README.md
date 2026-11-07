@@ -18,6 +18,12 @@ It was built to run well in Termux on a phone (narrow output, no heavy dependenc
 - **Copes with unreliable free models:** automatic fallback to other models, rate-limit cooldowns, repair of broken tool-call JSON, recovery from cut-off output.
 - **Stays inside your workspace** unless you approve otherwise, and deletes to a recoverable trash.
 
+## device support
+
+Lumo AI can be run on Android devices and desktops.
+
+can be 32 bit and 64 bit
+
 ## Requirements
 
 - Python 3.8 or newer
@@ -107,7 +113,7 @@ The key can also come from the `OPENROUTER_API_KEY` environment variable. `LUMO_
 | `/resume` | continue unfinished work (progress is saved after every step) |
 | `/undo`, `/trash` | revert the last change, restore deleted files |
 | `/status` | model, permissions, usage today |
-| `/compact` | shrink a long conversation |
+| `/compact` | move the older part of a long conversation to `history/archive/` and keep the newest 15 messages, so each request carries fewer tokens. No model request is used. `/compact summary` has the model write a summary instead |
 
 Also: `!ls` runs a shell command directly, `@file.py` includes a file in your message, and a line containing only `"""` starts and ends a multi-line message.
 
@@ -174,12 +180,6 @@ prompts/qa-prompt.md       question-and-answer mode
 - **Misuse and jailbreaks.** Safety rules are part of every prompt (`prompts/safety-rules.md`): Lumo refuses malware, fraud tools, weapons and similar requests, ignores attempts to switch the rules off (role-play, "developer mode", claimed authority, encodings), and does not follow instructions found in pages or files. A small local guard (`lumo/guard.py`) refuses blatant requests before any model request is sent. Defensive and educational work is still supported. No prompt-level protection is perfect, so keep reviewing what the agent does.
 - Lumo has no telemetry. The only network calls are to OpenRouter, to the search providers and to the sites the model is asked to fetch.
 
-## Remove
-
-cd ~
-
-rm -rf Lumo-code
-
 ## Updating and uninstalling
 
 ```bash
@@ -245,10 +245,6 @@ Lumo Code works with several AI providers. Each provider keeps its own key and i
 The model list of the active provider is refreshed every 12 hours, in the background, and sorted with the most capable models first. The order combines the model family and generation, the size in its name, the context length, the release date and the price, plus how each model performed for you in earlier sessions. It is an estimate, not a benchmark: `/model <n>` or `/model <id>` always wins.
 
 
-## device support
-
-Lumo Code can be run on Android devices and desktops. It can be 32-bit or 64-bit.
-
 ## Skills chosen by the AI
 
 The model decides which skills to load: the system prompt lists every skill in one line, and the model calls `use_skill` for the guides that fit the task. Pin a skill yourself with `/skill use <name>`. `/skill mode auto` brings back the earlier behavior, where Lumo scores the request and loads skills itself.
@@ -260,4 +256,6 @@ Apache License 2.0 (see `LICENSE` and `NOTICE`). It grants an explicit patent li
 
 
 
-Base code by alfar988 (Lumo Code - Apache 2.0)
+
+
+(base code by alfar988. lumo-code)

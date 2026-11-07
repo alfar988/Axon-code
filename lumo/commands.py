@@ -14,6 +14,7 @@ import urllib.request
 from pathlib import Path
 
 from lumo import safelimit
+from lumo.compact import compact_archive
 from lumo import search as engine
 from lumo.client import _REAL_GAI, NETSTATE
 from lumo import providers
@@ -146,7 +147,8 @@ HELP = """
   /skills · /skill show|use|unpin|why|install|remove
   /templates                    list ready-made starters
   /secret set|list|del <NAME>   store other API keys
-  /todo · /compact · /clear · /save · /load
+  /compact [summary]            archive the older chat (newest 15 messages stay) to save tokens
+  /todo · /clear · /save · /load
   /key [provider] · /tokens · /net · /wakelock · /exit
 
 %s
@@ -254,30 +256,48 @@ def cmd_status(ctx):
         ("on" if ctx.cfg.get("research", True) else "off") + dim(" · mode ") + ctx.cfg.get("mode", "auto"))
     out("  " + dim("history      ") + "%d messages · ~%dk characters" % (len(ctx.messages), hist_chars(ctx.messages) // 1000))
     if safelimit.active():
-        out("  " + dim("limit saver   ") + ok("on"))
+        out("  " + dim("limit saver   ") + ok(safelimit.label()))
 
 
-def cmd_safelimit(ctx, arg):
-    """Hidden command (not in /help or Tab completion): fewer requests and tokens. See lumo/safelimit.py."""
+def cmd_compact(ctx, arg):
+    """/compact archives the older conversation and keeps the newest messages (no model request).
+    /compact summary is the older way: the model writes a summary of the earlier conversation."""
+    if arg and arg[0].lower() in ("summary", "summarize"):
+        compact_history(ctx)
+    else:
+        compact_archive(ctx)
+
+
+def cmd_savelevel(ctx, arg, name, lvl):
+    """Hidden commands (not in /help or Tab completion). /safelimit is the balanced limit saver (level 1) and /safetylimit the
+    maximum one (level 2). Typing a command switches its level on, and off again when it is already on. See lumo/safelimit.py."""
     sub = arg[0].lower() if arg else ""
     if sub in ("status", "?"):
         pass
     elif sub in ("on", "off"):
-        safelimit.set_on(ctx.cfg, sub == "on")
+        safelimit.set_level(ctx.cfg, lvl if sub == "on" else 0)
         save_config(ctx.cfg)
     elif sub == "":
-        safelimit.set_on(ctx.cfg, not safelimit.active())
+        safelimit.set_level(ctx.cfg, 0 if safelimit.level() == lvl else lvl)
         save_config(ctx.cfg)
     else:
-        out("  " + err("usage: /safelimit [on|off|status]"))
+        out("  " + err("usage: /%s [on|off|status]" % name))
         return
     if safelimit.active():
-        out("  " + ok("✓ limit saver on"))
+        out("  " + ok("✓ limit saver " + safelimit.label()))
         for row in safelimit.summary():
             out("    " + dim("· " + row))
-        out("  " + dim("switch off: /safelimit off"))
+        out("  " + dim("switch off: /%s off" % ("safetylimit" if safelimit.maximum() else "safelimit")))
     else:
-        out("  " + ok("✓ limit saver off") + dim("  (normal limits; switch on: /safelimit)"))
+        out("  " + ok("✓ limit saver off") + dim("  (normal limits; balanced: /safelimit · maximum: /safetylimit)"))
+
+
+def cmd_safelimit(ctx, arg):
+    cmd_savelevel(ctx, arg, "safelimit", 1)
+
+
+def cmd_safetylimit(ctx, arg):
+    cmd_savelevel(ctx, arg, "safetylimit", 2)
 
 
 def cmd_mode(ctx, arg):
@@ -687,7 +707,7 @@ def handle_command(ctx, line):
     elif cmd == "/todo":
         print_todos(ctx)
     elif cmd == "/compact":
-        compact_history(ctx)
+        cmd_compact(ctx, arg)
     elif cmd == "/save":
         out("  " + ok("✓ saved: ") + short_path(save_session(ctx, rest or "manual")))
     elif cmd == "/load":
@@ -706,6 +726,8 @@ def handle_command(ctx, line):
         cmd_checklimit(ctx, arg)
     elif cmd == "/safelimit":
         cmd_safelimit(ctx, arg)
+    elif cmd == "/safetylimit":
+        cmd_safetylimit(ctx, arg)
     elif cmd == "/tokens":
         u = ctx.usage
         out("  " + dim("last prompt     : ") + "%d token" % u["last_prompt"])
