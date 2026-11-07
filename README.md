@@ -257,3 +257,7 @@ The model decides which skills to load: the system prompt lists every skill in o
 
 Apache License 2.0 (see `LICENSE` and `NOTICE`). It grants an explicit patent license, requires the notice to stay with redistributions, and does not grant the right to use the project's name. Versions before 1.3.0 were published under the MIT License. This is a summary, not legal advice.
 
+
+
+
+Base code by alfar988 (Lumo Code - Apache 2.0)
