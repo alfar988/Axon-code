@@ -8,6 +8,19 @@ For a small edit to an existing page (a color, a label, a spacing), change only 
 
 Good design here means: one clear direction, a small token system, generous spacing, readable type, honest content. **Start from a template** (`use_template("web-landing")` for sites, `"web-app"` for tools) and adapt it; both score 100/100 on `review_ui`.
 
+## Quick rules (read first)
+1. Pick one visual direction for this subject and write it in a CSS comment. Do not start from a generic look.
+2. Define tokens first: colors, spacing scale, type scale, radius, shadow. Use them everywhere, with no random values.
+3. Text contrast at least 4.5:1 (3:1 for large text). One accent color is enough.
+4. Touch targets at least 44px. Visible focus with `:focus-visible`. It must work at 360px wide.
+5. Use real content from the request, not lorem ipsum, not invented numbers.
+6. Icons are inline SVG, not emoji. Respect `prefers-reduced-motion`.
+7. Run `review_ui` and fix the HIGH and MEDIUM findings.
+
+## Safety in this skill
+- No dark patterns: no fake countdowns or "only 2 left", no hidden unsubscribe or close button, no pre-ticked consent, no buttons that lie.
+- No invented testimonials, ratings, statistics, awards or logos of real companies. Do not copy the look of a bank, a government site or a login page to make people believe it is that site.
+
 ## 1. Decide the direction (write it in a CSS comment)
 Pick ONE: editorial, warm minimal, soft neutral, technical/terminal, bold brutalist, playful (kids/games). Everything follows from it: color, type, radius, density. If the user gave no style, choose warm minimal or soft neutral. For games choose a dark, high-contrast palette with one bright accent.
 
@@ -76,7 +89,7 @@ Real, specific copy beats lorem ipsum. Headline says what it is; subhead says fo
 Purple/indigo-to-pink gradients, gradient text, glow and glassmorphism everywhere, three identical centered cards under a centered hero, emoji icons, "Welcome to my website", stock-photo placeholders, heavy drop shadows. Use whitespace, alignment and one accent instead. Keep text crisp: no blur, no large glow or shadow on text, no glass panel behind numbers.
 
 ## 9. Make it yours (a template is a start, not the result)
-Axion compares your page with the template and sends you back when it is too similar. Changing the accent and the title is not design. Build the page for THIS subject and add nothing the request did not call for:
+Lumo compares your page with the template and sends you back when it is too similar. Changing the accent and the title is not design. Build the page for THIS subject and add nothing the request did not call for:
 - **Identity:** a palette of 3 to 4 tokens (surface, ink, accent, one secondary tone), a deliberate type pairing, one shape language (sharp, soft, pill).
 - **Real content and structure:** write the copy for THIS subject; remove sections that do not apply, add ones that do (gallery, timeline, comparison table, case studies, team, location, menu, schedule).
 - **A custom hero visual** drawn with inline SVG or CSS, not the generic preview card.
@@ -117,3 +130,56 @@ h1, h2 { font-family: var(--display); font-weight: 700; letter-spacing: -.01em; 
 | Mobile overflow | Find the element wider than the viewport (fixed px width, long word): `max-width: 100%`, `overflow-wrap: anywhere` |
 | Low contrast flagged | Darken text or the accent, or switch to dark text on a light accent |
 | Dark mode unreadable | Redefine tokens in the dark block, never hard-code colors in components |
+
+## Good and bad examples
+
+### 1. Tokens
+Bad: values scattered through the file.
+```css
+.card { color: #777; margin: 13px; padding: 11px 19px; border-radius: 7px; }
+.note { color: #888; margin: 14px; }
+```
+Good: a small set of named values.
+```css
+:root { --text: #1d2430; --muted: #566070; --space-2: 8px; --space-3: 16px; --radius: 10px; }
+.card { color: var(--text); margin: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius); }
+.note { color: var(--muted); margin: var(--space-3); }
+```
+
+### 2. Focus
+Bad: `button:focus { outline: none; }` leaves keyboard users lost.
+Good:
+```css
+button:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+```
+
+### 3. Contrast
+Bad: light gray text `#aaa` on white (about 2.3:1).
+Good: `#566070` on white (about 6.4:1).
+
+### 4. Honest copy
+Bad: "Trusted by 10,000+ happy customers. Rated #1 worldwide." (invented)
+Good: "Track your reading list. Add a book, mark it read, see your year at a glance." (says what it does)
+
+### 5. Touch targets
+Bad: a 24px icon button. Good: a 44px by 44px button with the icon centered and an accessible name (`aria-label="Close"`).
+
+### 6. Layout that survives a phone
+Bad: fixed widths such as `width: 960px`. Good: `max-width: 960px; width: 100%; padding-inline: var(--space-3);` and a grid that wraps with `repeat(auto-fit, minmax(220px, 1fr))`.
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Purple gradient, glow and glass on everything | Pick a quieter palette that fits the subject; use effects once, with purpose |
+| Three identical cards under a centered hero | Vary the layout: a list, a table, a split section, a real image |
+| Text over a busy image | Add a solid or dark overlay behind the text and check contrast |
+| Many font sizes | Use a scale: 14, 16, 20, 28, 40 |
+| Animation on everything | Animate one meaningful change; turn it off for reduced motion |
+| Only checked on desktop | Check 360px portrait and a short landscape view |
+
+## Checklist before you finish
+- [ ] Tokens are defined and used; there are no stray color or size values.
+- [ ] Contrast, focus and touch targets pass; it works at 360px.
+- [ ] The copy is real and contains no invented facts or fake social proof.
+- [ ] There are no dark patterns and no imitation of a trusted brand.
+- [ ] `review_ui` ran and the HIGH and MEDIUM findings are fixed.

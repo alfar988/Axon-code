@@ -15,11 +15,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-from axion import search as engine  # noqa: E402
-from axion.state import Ctx, ToolError  # noqa: E402
-from axion.tools.research import keywords, pick_passages, t_deep_research, t_package_info, t_web_search  # noqa: E402
-from axion.tools.web import t_web_fetch  # noqa: E402
-from axion.webutil import fetch_clean, http_fetch, PageParser  # noqa: E402
+from lumo import search as engine  # noqa: E402
+from lumo.state import Ctx, ToolError  # noqa: E402
+from lumo.tools.research import keywords, pick_passages, t_deep_research, t_package_info, t_web_search  # noqa: E402
+from lumo.tools.web import t_web_fetch  # noqa: E402
+from lumo.webutil import fetch_clean, http_fetch, PageParser  # noqa: E402
 
 
 def b64(s):
@@ -289,7 +289,7 @@ class Providers(SearchBase):
 class Tools(SearchBase):
     def setUp(self):
         SearchBase.setUp(self)
-        self.ctx = Ctx({"model": "x/y"}, Path(tempfile.mkdtemp(prefix="axion_ws_")))
+        self.ctx = Ctx({"model": "x/y"}, Path(tempfile.mkdtemp(prefix="lumo_ws_")))
 
     def test_web_search_tool_output(self):
         out = t_web_search({"query": "flask docs"}, self.ctx)

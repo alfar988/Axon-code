@@ -6,6 +6,18 @@ description: Modern JavaScript and Node: async patterns (timeout, retry, concurr
 
 Use `const` by default, `let` when reassigning, never `var`. ES modules (`import`/`export`, `"type": "module"` in package.json). Strict equality `===`. No framework unless the task needs one: a single HTML file with vanilla JS is often the right size.
 
+## Quick rules (read first)
+1. Use `const` by default, `let` when it changes, never `var`. Compare with `===`.
+2. Use `async`/`await` with `try/catch`. Always handle a rejected promise.
+3. Give every network call a deadline (`AbortController` or `AbortSignal.timeout`).
+4. Parse JSON inside `try/catch`. Never trust the shape of data you did not create.
+5. Do not block the main thread: no long loops, no synchronous requests.
+6. Sort numbers with a comparator: `arr.sort((a, b) => a - b)`.
+
+## Safety in this skill
+- Never use `eval`, `new Function` or `setTimeout("code")` with text that is not fully under your control.
+- Do not write code that reads cookies, tokens or storage and sends them elsewhere, obfuscated code, or cryptominers. Before `npm install`, check the package name carefully (look-alike names are a known attack) and prefer well-known packages.
+
 ## Async patterns that work
 ```js
 // check: runs
@@ -108,3 +120,79 @@ await writeFile(join(dir, "a.json"), JSON.stringify({ ok: true }, null, 2));
 const data = JSON.parse(await readFile(join(dir, "a.json"), "utf8"));
 ```
 Read secrets from `process.env`. Handle `SIGINT` to close servers and files. `node --check file.js` finds syntax errors; `node --test` runs tests (see testing-skill).
+
+## Good and bad examples
+
+### 1. Waiting for several things
+Bad: one after another, so the total time is the sum.
+```js
+const a = await getA();
+const b = await getB();
+```
+Good: start both, then wait for both.
+```js
+// check: runs
+import assert from "node:assert/strict";
+
+const delay = (ms, v) => new Promise((r) => setTimeout(() => r(v), ms));
+const t0 = Date.now();
+const [a, b] = await Promise.all([delay(60, "a"), delay(60, "b")]);
+assert.deepEqual([a, b], ["a", "b"]);
+assert.ok(Date.now() - t0 < 110);            // about 60 ms, not 120 ms
+```
+
+### 2. Sorting
+Bad: the default sort compares text.
+```js
+[10, 9, 1].sort();            // [1, 10, 9]
+```
+Good:
+```js
+// check: runs
+import assert from "node:assert/strict";
+assert.deepEqual([10, 9, 1].sort((a, b) => a - b), [1, 9, 10]);
+```
+
+### 3. Equality and missing values
+Bad: `if (count == "0")` or `if (!count)` when 0 is a valid count.
+Good:
+```js
+// check: runs
+import assert from "node:assert/strict";
+const label = (count) => (count === undefined || count === null ? "unknown" : String(count));
+assert.equal(label(0), "0");
+assert.equal(label(undefined), "unknown");
+```
+
+### 4. A request with a deadline
+Bad: `await fetch(url)` can wait forever.
+Good:
+```js
+// check: syntax
+async function getJson(url, ms = 8000) {
+  const res = await fetch(url, { signal: AbortSignal.timeout(ms) });
+  if (!res.ok) throw new Error("HTTP " + res.status);
+  return res.json();
+}
+```
+
+### 5. Loops with await
+Bad: `items.forEach(async (x) => { await save(x); });` (nobody waits for these).
+Good: `for (const x of items) { await save(x); }` for one at a time, or `await Promise.all(items.map(save))` for parallel.
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| `this` is undefined in a callback | Use an arrow function, or `bind` |
+| Closure in a loop sees the last value | Use `let` in the loop head |
+| `JSON.parse` throws on empty text | Check for empty text; wrap in `try/catch` |
+| Mutating an array you share | Copy with `[...arr]` or `structuredClone` |
+| Floating point sums | Work in integers (cents) and format at the end |
+| `parseInt("08")` surprises | `Number(text)` or `parseInt(text, 10)` |
+
+## Checklist before you finish
+- [ ] No `var`, no `==`, no unhandled promise.
+- [ ] Network calls have a deadline and a visible failure message.
+- [ ] No `eval`, no outside text in `innerHTML`.
+- [ ] Numbers are sorted with a comparator.
+- [ ] I ran the code (browser or `node`) and read the console.

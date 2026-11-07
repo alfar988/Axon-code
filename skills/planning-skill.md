@@ -6,6 +6,18 @@ description: Plan a project before building it: goal, testable features, archite
 
 Use it for anything with more than one part: a game, an app, a website, an API, a bot, a refactor.
 
+## Quick rules (read first)
+1. Plan before you build anything that needs more than a few files or steps. For a small edit, just do it.
+2. Write features as checks someone can test ("the player loses a life when a hazard touches them"), not adjectives ("fun gameplay").
+3. Take features only from what the user asked for or clearly needs. List the rest under "not building".
+4. Steps are small and ordered. Each step has a check that shows it worked.
+5. Write down assumptions and the risks that could change the plan.
+6. If reality differs from the plan, update the plan and say so. Do not keep following a plan that no longer fits.
+
+## Safety in this skill
+- A plan is only for work you would do. If the request is harmful or illegal, say so plainly instead of planning it.
+- A plan never widens your permissions: no step that disables security, reads files outside the workspace or sends data away unless the user asked for exactly that.
+
 ## Method
 1. **Goal in one sentence**, then constraints: where it runs (phone browser, Termux, PC), one file or many, offline or online, language, size limits.
 2. **Features as checks, not adjectives.** "The player loses a life when a hazard touches them", not "fun gameplay". 6 to 15 items taken from the request, each something you can verify.
@@ -20,29 +32,29 @@ Use it for anything with more than one part: a game, an app, a website, an API, 
 ## Example: the argument shape for submit_plan
 ```json
 {
-  "title": "Bunny Garden",
+  "title": "Parcel Run",
   "summary": "Single-file 2D game for phones. Assumptions: portrait layout, no external assets, best score kept in localStorage.",
   "features": [
-    "Bunny moves with a touch joystick (left) and keyboard (WASD/arrows)",
-    "Carrots (10 pts), strawberries (20), flowers (30) spawn and expire",
-    "Bees drift across the screen; touching one costs a life and shakes the screen",
+    "Courier moves with a touch joystick (left) and keyboard (WASD/arrows)",
+    "Parcels (10 pts), envelopes (20), crates (30) spawn and expire",
+    "Drones drift across the screen; touching one costs a life and shakes the screen",
     "Combo multiplier rises when pickups are chained within 2 seconds",
-    "Difficulty ramps: faster bees and more spawns every 40 seconds",
+    "Difficulty ramps: faster drones and more spawns every 40 seconds",
     "Menu, pause, game over with best score; one tap to restart"
   ],
-  "architecture": "index.html only. Engine from the game-2d template (loop, input, audio, particles). Game content is data in CONFIG plus draw functions for bunny, items and bees.",
+  "architecture": "index.html only. Engine from the game-2d template (loop, input, audio, particles). Game content is data in CONFIG plus draw functions for the courier, items and drones.",
   "files": [{"path": "index.html", "purpose": "whole game"}],
   "steps": [
     {"title": "use_template game-2d as index.html and set title and accent", "verify": "node scripts/page_check.js index.html reports draw calls in both sizes"},
-    {"title": "Re-theme CONFIG and colors; rename entities (orb -> carrot, hazard -> bee)", "verify": "verify_files clean; the page still starts"},
-    {"title": "Write drawBunny/drawCarrot/drawBee with canvas paths", "verify": "page_check shows the entities are drawn (draw calls up)"},
-    {"title": "Add strawberry and flower types with different values and lifetimes", "verify": "play: each pickup type scores its own value"},
+    {"title": "Re-theme CONFIG and colors; rename entities (orb -> parcel, hazard -> drone)", "verify": "verify_files clean; the page still starts"},
+    {"title": "Write drawCourier/drawParcel/drawDrone with canvas paths", "verify": "page_check shows the entities are drawn (draw calls up)"},
+    {"title": "Add envelope and crate types with different values and lifetimes", "verify": "play: each pickup type scores its own value"},
     {"title": "Tune spawn rates and the difficulty ramp", "verify": "play 60 seconds: pressure rises, restart works"},
     {"title": "verify_files, review_ui, then preview_web and fix what they report", "verify": "no errors, review_ui score >= 85"}
   ],
   "acceptance": [
-    "Opening index.html shows the garden, the bunny and the score at start, in portrait and landscape",
-    "Each pickup type adds its own points and a bee hit costs a life",
+    "Opening index.html shows the street, the courier and the score at start, in portrait and landscape",
+    "Each pickup type adds its own points and a drone hit costs a life",
     "Game over shows the best score and one tap restarts"
   ],
   "risks": ["Touch joystick on small screens: test it first with page_check and by hand"],
@@ -77,3 +89,46 @@ Use it for anything with more than one part: a game, an app, a website, an API, 
 | Everything depends on one uncertain part | Move it first and test it in isolation |
 | The plan keeps growing | Freeze features, move extras to a "later" list |
 | Research gives conflicting advice | Prefer the official docs for the exact version you load, note the source in research_notes |
+
+## Good and bad examples
+
+### 1. Features
+Bad: "Fun and addictive gameplay", "modern, beautiful UI".
+Good: "Tapping a tile slides it; two equal tiles merge and add to the score", "The page fits a 360px screen without sideways scrolling".
+
+### 2. Steps
+Bad: "Build the app." (one giant step, no check)
+Good: three small steps, each with a check.
+```text
+1. Add the board and the move rules   check: unit checks for slide() pass
+2. Draw the board and handle swipes   check: page_check shows draw calls; a swipe moves tiles
+3. Add score and best score           check: the best score survives a reload
+```
+
+### 3. Scope
+Bad: the user asked for a to-do list and the plan includes accounts, sharing and a mobile app.
+Good: the to-do list, with the polish it needs, and a short "not building" list: accounts, sharing.
+
+### 4. Assumptions
+Bad: silently guess "they want it in React".
+Good: "Assumption: a single HTML file with no build step, because they did not name a framework."
+
+### 5. Replanning
+Bad: step 2 fails because the library has no such function, and you keep going.
+Good: stop, note "the library has no X; using Y instead", change the later steps that depended on X.
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Plan is longer than the work | Keep it to the steps you will really do, 3 to 12 |
+| Steps depend on each other in a loop | Reorder so each step builds on finished ones |
+| No check for a step | Add what you will run or open to prove it |
+| Risks not written | Name the two most likely failures and how you will notice them |
+| Everything is "high priority" | Put the must-haves first; the rest is "not building" |
+
+## Checklist before you finish
+- [ ] Every feature is a testable statement taken from the request.
+- [ ] Every step is small and has a check.
+- [ ] Assumptions, risks and "not building" are written.
+- [ ] The plan was updated when something changed.
+- [ ] At the end, each feature was checked against evidence.

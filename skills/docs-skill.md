@@ -6,6 +6,18 @@ description: Write READMEs, changelogs, docstrings and interface text in plain, 
 
 Documentation exists so a stranger can install, run and understand the project in a few minutes. Write it the way a careful colleague would explain it: concrete, short, honest about limits.
 
+## Quick rules (read first)
+1. The first sentence says what the project is and who it is for. Then show how to run it.
+2. Every command in the docs was run. Show the real output when it helps.
+3. Short sentences, active voice, one idea per paragraph. Put the most useful part first.
+4. Name actions in buttons and messages ("Save changes", not "Submit"). Errors say what happened and what to do next.
+5. Leave out empty praise: powerful, seamless, blazing fast, revolutionary, effortless.
+6. Keep a changelog entry for each change a user can notice.
+
+## Safety in this skill
+- Do not invent features, benchmarks, statistics, awards, customers or licenses. If you did not check a claim, leave it out or mark it as unchecked.
+- Never put real keys, tokens, passwords or personal data in examples; use obvious fakes such as `sk-xxxx` or `user@example.com`. Do not copy someone else's documentation wholesale; link to it.
+
 ## README structure
 1. **Name and one sentence** saying what it is and who it is for.
 2. **Requirements** with versions.
@@ -73,3 +85,52 @@ Name the action ("Save changes", not "Submit"). Errors say what happened and wha
 
 ## Check before you finish
 Every command was run. Every path exists. Versions match `package_info` or the lock file. The README opens with what the project is, not with a logo or a badge row.
+
+## Good and bad examples
+
+### 1. The opening
+Bad: "A powerful, next-generation toolkit that supercharges your workflow!"
+Good: "notes is a command-line notebook. It stores plain text files in `~/notes` and finds them by keyword."
+
+### 2. Quick start
+Bad: "Just install it and go." (no commands)
+Good:
+```bash
+pip install notes
+notes add "buy milk"
+notes find milk
+```
+with the real output shown under the last command.
+
+### 3. Error messages
+Bad: "Error 500" or "Something went wrong."
+Good: "Could not save: the disk is full. Free some space and try again."
+
+### 4. Buttons and empty states
+Bad: a button labeled "Submit", and an empty list with no text.
+Good: "Save changes", and "No notes yet. Add your first one with the button above."
+
+### 5. Code comments
+Bad: `i += 1  # add one to i`
+Good: `# The API counts pages from 1, but our list starts at 0.`
+
+### 6. Changelog
+Bad: "Fixed stuff and improved performance."
+Good: "Fixed: `notes find` no longer crashes when a note has no title. Changed: search is about 3x faster on 10,000 notes (measured on a laptop)." (only if you measured it)
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Instructions that were never run | Run them in a clean folder and paste what happened |
+| One huge README | Quick start first; put details in sections or separate files |
+| Out-of-date examples | Keep examples next to tests, or re-run them before release |
+| Passive, vague steps | "Run `make test`", not "The tests may be run" |
+| No requirements listed | State the language version and the operating systems you tried |
+| Unexplained jargon | Define a word the first time, or use a plainer one |
+
+## Check before you finish
+- [ ] A new reader can run the quick start from top to bottom.
+- [ ] Every command and output in the docs is real.
+- [ ] No hype words, no invented numbers or customers.
+- [ ] Errors and buttons tell people what to do.
+- [ ] The changelog lists what changed for users.

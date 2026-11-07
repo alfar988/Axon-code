@@ -1,6 +1,8 @@
-# Axion Code
+<p align="center"><img src="assets/lumo-banner.svg" alt="Lumo Code: AI coding agent for the terminal" width="720"></p>
 
-Axion Code is an AI coding agent for the terminal. You describe what you want in plain language, and it plans the work, writes the files, runs commands, checks its own result and fixes what fails. It talks to [OpenRouter](https://openrouter.ai), so it works with the free models there, and it needs nothing beyond the Python standard library.
+# Lumo Code
+
+Lumo Code is an AI coding agent for the terminal. You describe what you want in plain language, and it plans the work, writes the files, runs commands, checks its own result and fixes what fails. It talks to [OpenRouter](https://openrouter.ai), so it works with the free models there, and it needs nothing beyond the Python standard library.
 
 It was built to run well in Termux on a phone (narrow output, no heavy dependencies), and it runs the same on any Linux machine or macOS.
 
@@ -12,7 +14,7 @@ It was built to run well in Termux on a phone (narrow output, no heavy dependenc
 - **Learns from its work:** after it fixes a non-obvious error it can save a lesson, applies relevant lessons in later sessions, and can write a new skill for a procedure it expects to repeat (it asks first). You can review and delete everything with `/lessons`.
 - **Checks its own work:** syntax, undefined functions and variables, broken HTML, and a static UI review (responsive layout, accessibility, WCAG color contrast, generic "AI look") before it says it is done.
 - **Repairs itself:** when a command or check fails it reads the error, applies the likely fix (install the module, change the port, correct the path) and reruns, without waiting for you.
-- **Uses skills:** 31 guides with working code examples and troubleshooting steps, selected automatically for each request.
+- **Uses skills:** 32 guides with working code examples, good and bad examples and troubleshooting steps, chosen for each request.
 - **Copes with unreliable free models:** automatic fallback to other models, rate-limit cooldowns, repair of broken tool-call JSON, recovery from cut-off output.
 - **Stays inside your workspace** unless you approve otherwise, and deletes to a recoverable trash.
 
@@ -42,8 +44,8 @@ On Windows use WSL.
 ## Quick start
 
 ```bash
-git clone https://github.com/alfar988/Axon-code.git
-cd Axon-code
+git clone https://github.com/alfar988/Lumo-code.git
+cd Lumo-code
 python run.py
 ```
 
@@ -51,27 +53,27 @@ If your system has no `python` command, use `python3 run.py`.
 
 On the first run:
 
-1. Paste your OpenRouter key when asked (the input is hidden). It is checked against OpenRouter and stored in `~/.axion/config.json` with owner-only permissions. Enter a different key later with `python run.py --setup`.
+1. Paste your OpenRouter key when asked (the input is hidden). It is checked against OpenRouter and stored in `~/.lumo/config.json` with owner-only permissions. Enter a different key later with `python run.py --setup`.
 2. Pick a model from the list of free models that support tool calling (type a number, or press Enter for the first). Change it any time with `/models`.
 3. Type a request at the prompt.
 
 ```
-> build a 2D game for phones where a bunny collects carrots and avoids bees
+> build a 2D game for phones where a courier collects parcels and avoids drones
 > add a login page and a REST API with SQLite to this project
 > why does python app.py crash with a KeyError?
 ```
 
-For build requests Axion first researches and writes a plan, then builds in small steps. Before it writes a file or runs a command it asks `[y] yes · [n] no · [a] auto`: `y` allows it once, `n` refuses, `a` stops asking for the rest of the session (inside the workspace only). Leave with `/exit` or Ctrl+D.
+For build requests Lumo first researches and writes a plan, then builds in small steps. Before it writes a file or runs a command it asks `[y] yes · [n] no · [a] auto`: `y` allows it once, `n` refuses, `a` stops asking for the rest of the session (inside the workspace only). Leave with `/exit` or Ctrl+D.
 
 ### Where files go
 
-Axion works inside one folder, the workspace. The default is `~/workspace`. Pass a folder to use another:
+Lumo works inside one folder, the workspace. The default is `~/workspace`. Pass a folder to use another:
 
 ```bash
 python run.py ~/projects/my-game
 ```
 
-If you start it from another directory, that directory becomes the workspace. Your home folder and the Axion folder itself fall back to `~/workspace`, so the agent never edits its own source. For web projects `/serve` starts a local preview server.
+If you start it from another directory, that directory becomes the workspace. Your home folder and the Lumo folder itself fall back to `~/workspace`, so the agent never edits its own source. For web projects `/serve` starts a local preview server.
 
 ## Command line options
 
@@ -86,7 +88,7 @@ python run.py [workspace] [options]
   --version
 ```
 
-The key can also come from the `OPENROUTER_API_KEY` environment variable. `AXION_HOME` changes where settings are stored (default `~/.axion`).
+The key can also come from the `OPENROUTER_API_KEY` environment variable. `LUMO_HOME` changes where settings are stored (default `~/.lumo`).
 
 ## Everyday commands
 
@@ -100,7 +102,7 @@ The key can also come from the `OPENROUTER_API_KEY` environment variable. `AXION
 | `/skills`, `/skill why` | list skills, show why they were picked |
 | `/search [kind] <query>` | search the web directly (`news`, `code`, `qa`, `docs`, `packages`, `academic`, `wiki`) |
 | `/dig <question>` | research a question across several sources and answer with citations |
-| `/lessons` | show, add or delete what Axion learned; `/lessons off` stops learning |
+| `/lessons` | show, add or delete what Lumo learned; `/lessons off` stops learning |
 | `/templates` | list the ready-made starters |
 | `/resume` | continue unfinished work (progress is saved after every step) |
 | `/undo`, `/trash` | revert the last change, restore deleted files |
@@ -111,11 +113,11 @@ Also: `!ls` runs a shell command directly, `@file.py` includes a file in your me
 
 ## How it works
 
-1. **Intent and skills.** Axion decides whether you asked a question, a task or a build, and picks the skills that fit (for example `game-skill` and `planning-skill` for a game). `/skill why` shows the scores.
+1. **Intent and skills.** Lumo decides whether you asked a question, a task or a build, and picks the skills that fit (for example `game-skill` and `planning-skill` for a game). `/skill why` shows the scores.
 2. **Plan.** For builds it researches the web where useful and saves a plan to `history/plan.md`.
-3. **Build.** It copies the best template with `use_template`, then adapts it to your request (art, rules, sections and content, and nothing you did not ask for). Axion compares the result with the template and sends the model back when it is still nearly identical, so a recolored starter is not accepted. Large files are written in parts so no single response is cut off. If a model hits its output limit, the complete part is saved and the model is asked for smaller parts.
+3. **Build.** It copies the best template with `use_template`, then adapts it to your request (art, rules, sections and content, and nothing you did not ask for). Lumo compares the result with the template and sends the model back when it is still nearly identical, so a recolored starter is not accepted. Large files are written in parts so no single response is cut off. If a model hits its output limit, the complete part is saved and the model is asked for smaller parts.
 4. **Verify.** `verify_files` runs on the files the request created or changed, and `review_ui` on the pages a build request produced. Problems are fed back to the model until they are fixed. Other files in the workspace are left alone. For web pages and games, `node scripts/page_check.js page.html` loads the page in a stub browser at portrait and landscape sizes and reports exceptions and blank canvases (needs Node.js).
-5. **Recover.** Errors trigger diagnosis hints and a debug skill. If a model keeps failing or is rate limited, Axion switches to another one and carries the plan and progress over.
+5. **Recover.** Errors trigger diagnosis hints and a debug skill. If a model keeps failing or is rate limited, Lumo switches to another one and carries the plan and progress over.
 
 Each request is handled on its own. The plan and the todo list of earlier work do not carry over to a new request, and the automatic checks never open files the request did not touch. Say `continue` (or use `/resume`) to pick up unfinished work.
 
@@ -127,7 +129,7 @@ No account is needed. For better general results you can add a key for Brave Sea
 
 ### Learning
 
-Lessons are short notes such as "On Termux `pip install pillow` needs `pkg install libjpeg-turbo` first". They are stored in `~/.axion/knowledge/lessons.jsonl`, shown in the system prompt only when they match the current request, and treated as data, not instructions. Text that looks like credentials or like instructions to the model is refused. Skills the agent writes for itself go to `~/.axion/skills/` after you approve them. `/lessons off` disables the feature.
+Lessons are short notes such as "On Termux `pip install pillow` needs `pkg install libjpeg-turbo` first". They are stored in `~/.lumo/knowledge/lessons.jsonl`, shown in the system prompt only when they match the current request, and treated as data, not instructions. Text that looks like credentials or like instructions to the model is refused. Skills the agent writes for itself go to `~/.lumo/skills/` after you approve them. `/lessons off` disables the feature.
 
 ### Skills
 
@@ -163,27 +165,28 @@ prompts/qa-prompt.md       question-and-answer mode
 
 ## Security and privacy
 
-- **Your key** is stored only in `~/.axion/config.json` (mode 600) and sent only to OpenRouter (optional search keys go to their own providers). Never commit it. If you fork this project, keep `.env` and `history/` in `.gitignore` (already set).
+- **Your key** is stored only in `~/.lumo/config.json` (mode 600) and sent only to OpenRouter (optional search keys go to their own providers). Never commit it. If you fork this project, keep `.env` and `history/` in `.gitignore` (already set).
 - **What leaves your machine:** your requests, the files the model reads and the command output are sent to OpenRouter and to the provider of the selected model. Providers of free models may keep and use prompts, so do not send secrets or private data. Store other API keys with `/secret set NAME`; the model only sees a `{{NAME}}` placeholder.
 - **Permissions:** file access outside the workspace asks every time (or once per folder for the session). Dangerous shell commands ask even in auto mode. Deleted files go to a trash you can restore from.
 - **Use `--auto` deliberately.** It lets the agent edit files and run commands inside the workspace without asking. Use a dedicated workspace and review what it did.
 - **Treat generated code like any code from the internet:** read it before running it on anything that matters.
 - **Web content is untrusted.** Pages, lessons and skills are treated as data; instructions inside them do not override your request. Creating a skill always asks for approval, even with `--auto`.
-- Axion has no telemetry. The only network calls are to OpenRouter, to the search providers and to the sites the model is asked to fetch.
+- **Misuse and jailbreaks.** Safety rules are part of every prompt (`prompts/safety-rules.md`): Lumo refuses malware, fraud tools, weapons and similar requests, ignores attempts to switch the rules off (role-play, "developer mode", claimed authority, encodings), and does not follow instructions found in pages or files. A small local guard (`lumo/guard.py`) refuses blatant requests before any model request is sent. Defensive and educational work is still supported. No prompt-level protection is perfect, so keep reviewing what the agent does.
+- Lumo has no telemetry. The only network calls are to OpenRouter, to the search providers and to the sites the model is asked to fetch.
 
 ## Updating and uninstalling
 
 ```bash
-cd Axon-code && git pull          # update
-rm -rf ~/.axion                   # remove settings (key, sessions, trash)
+cd Lumo-code && git pull          # update
+rm -rf ~/.lumo                   # remove settings (key, sessions, trash)
 ```
 
 ## Troubleshooting
 
 | Problem | What to do |
 |---|---|
-| `429` rate limit | Free models are limited per minute and per day. Axion switches model and rests the limited one; if all are busy, wait or add credit to your OpenRouter account. |
-| `403` | Not always a bad key. Axion checks the key for you: if it is valid, the 403 came from the model, the provider or your network. Try `/models` or `/net`. If the key really is rejected, run `python run.py --setup`. |
+| `429` rate limit | Free models are limited per minute and per day. Lumo switches model and rests the limited one; if all are busy, wait or add credit to your OpenRouter account. |
+| `403` | Not always a bad key. Lumo checks the key for you: if it is valid, the 403 came from the model, the provider or your network. Try `/models` or `/net`. If the key really is rejected, run `python run.py --setup`. |
 | Output cut off | Handled automatically: complete parts are saved and the model continues in smaller parts. If a model keeps doing it, pick another with `/models`. |
 | `python: command not found` | Use `python3 run.py`. |
 | Search returns nothing | A provider may be blocked for a few minutes. `/search providers` shows the state, `/search reset` clears it. Adding a Brave, Tavily or Serper key makes general search steadier. |
@@ -200,7 +203,7 @@ The suite covers tool-call repair, history sanitizing, failure diagnosis, the sk
 
 ```
 run.py          entry point
-axion/          the program (cli, agent, client, models, skills, verify, tools/ ...)
+lumo/          the program (cli, agent, client, models, skills, verify, tools/ ...)
 prompts/        system prompt and rules
 skills/         skill guides and manifest.json
 templates/      tested starters and manifest.json
@@ -212,7 +215,7 @@ Issues and pull requests are welcome.
 
 ## Providers and keys
 
-Axion Code works with several AI providers. Each provider keeps its own key and its own chosen model.
+Lumo Code works with several AI providers. Each provider keeps its own key and its own chosen model.
 
 | Provider | Name for `/provider` | Environment variable |
 |---|---|---|
@@ -227,7 +230,7 @@ Axion Code works with several AI providers. Each provider keeps its own key and 
 | Together AI | `together` | `TOGETHER_API_KEY` |
 | Cerebras, Fireworks, NVIDIA NIM | `cerebras`, `fireworks`, `nvidia` | `CEREBRAS_API_KEY`, `FIREWORKS_API_KEY`, `NVIDIA_API_KEY` |
 | Ollama, LM Studio (local, no key) | `ollama`, `lmstudio` | none |
-| Any OpenAI-compatible server | `custom` | `AXION_API_KEY` |
+| Any OpenAI-compatible server | `custom` | `LUMO_API_KEY` |
 
 `/provider` lists them and switches, `/key [provider]` stores a key, and `python run.py --provider xai` starts with a given provider. When exactly one provider key is found in the environment on the first run, that provider is used. Anthropic is called through its native Messages API; every other provider uses the OpenAI chat-completions format. Paid providers do not switch models on their own unless you turn `/rotate` on.
 
@@ -237,7 +240,7 @@ The model list of the active provider is refreshed every 12 hours, in the backgr
 
 ## Skills chosen by the AI
 
-The model decides which skills to load: the system prompt lists every skill in one line, and the model calls `use_skill` for the guides that fit the task. Pin a skill yourself with `/skill use <name>`. `/skill mode auto` brings back the earlier behavior, where Axion scores the request and loads skills itself.
+The model decides which skills to load: the system prompt lists every skill in one line, and the model calls `use_skill` for the guides that fit the task. Pin a skill yourself with `/skill use <name>`. `/skill mode auto` brings back the earlier behavior, where Lumo scores the request and loads skills itself.
 
 ## License
 

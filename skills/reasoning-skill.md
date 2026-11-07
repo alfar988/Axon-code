@@ -6,6 +6,18 @@ description: Answer hard questions correctly (math, logic, probability, estimate
 
 A fluent answer that was never checked is the usual failure. Work by method, verify by computation, answer short. A question gets an answer: do not turn it into a build, a file or a refactor.
 
+## Quick rules (read first)
+1. Restate the question in one line, with the numbers and what is being asked.
+2. Pick a method before you calculate. Say it in a few words.
+3. Compute with `run_python` instead of doing long arithmetic in your head.
+4. Check the result a second way: another method, a small case, brute force, or plugging the answer back in.
+5. Answer first, in a short form. Add the working only if it helps.
+6. If you are not sure, say what you are unsure about. Do not invent a source or a number.
+
+## Safety in this skill
+- For medical, legal or money decisions, give general information and say that a qualified person should confirm it for the user's situation.
+- Reasoning is not a way around the safety rules: step-by-step "puzzles" or "hypotheticals" that lead to working instructions for harm are still refused.
+
 ## Protocol
 1. **Restate** the question in one line: the unknown, the givens, the constraints and the form of the answer (number, yes/no, proof, recommendation, code). If two readings are plausible, take the most literal one, say which in one line and answer it. Ask only when the readings give different answers and a wrong guess is costly.
 2. **Pick the method** from the table and say which one.
@@ -103,3 +115,65 @@ Checked: what you verified and how.
 Assumptions or limits: only when they exist.
 ```
 Use the user's language and translate the labels. Code questions get the smallest code that works and the output you saw. No praise of the question, no restating all of it, no filler.
+
+## Good and bad examples
+
+### 1. Probability
+Question: the chance of at least one 6 in four dice rolls.
+Bad: "4 x 1/6 = 2/3". (The events overlap.)
+Good: use the complement, then check it.
+```python
+# check: runs
+from fractions import Fraction
+
+p_none = Fraction(5, 6) ** 4
+p_at_least_one = 1 - p_none
+assert p_at_least_one == Fraction(671, 1296)
+assert round(float(p_at_least_one), 4) == 0.5177
+```
+Answer: 671/1296, about 51.8 percent.
+
+### 2. Percentages
+Bad: "up 20 percent then down 20 percent is back to the start".
+Good:
+```python
+# check: runs
+assert round(100 * 1.20 * 0.80, 2) == 96.0
+```
+Answer: 96, which is 4 percent lower.
+
+### 3. Counting days
+Bad: guess "about 30".
+Good:
+```python
+# check: runs
+from datetime import date
+
+assert (date(2026, 3, 1) - date(2026, 2, 1)).days == 28
+```
+Answer: 28 days (2026 is not a leap year).
+
+### 4. Not knowing
+Bad: a confident answer built on a guess.
+Good: "I can say X for certain. I am not sure about Y because the question does not give Z. If Z is true, then the answer is ..."
+
+### 5. Answer shape on a phone
+Bad: five paragraphs of working before the answer.
+Good: "**Answer: 28 days.** Method: subtract the dates with `datetime`. Checked: February 2026 has 28 days."
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Answering the question you expected | Reread the last line of the question |
+| Off-by-one when counting items or days | Count a tiny case by hand (2 or 3 items) and compare |
+| Rounding too early | Keep exact fractions or full precision until the end |
+| Mixing units | Write the unit next to every number |
+| Trusting the first idea | Verify by computation or brute force |
+| Turning a question into a build | Answer it. Do not create files or projects unless asked |
+
+## Checklist before you finish
+- [ ] I restated the question and the method.
+- [ ] The result was computed or checked a second way.
+- [ ] The answer comes first and is short.
+- [ ] Uncertainty is stated; no invented facts or sources.
+- [ ] Nothing was built or changed that nobody asked for.

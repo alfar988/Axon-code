@@ -1,5 +1,5 @@
 ---
-name: Axion AI Skill
+name: Lumo AI Skill
 developer: Alfar
 name: UI, CSS, and Visual Design
 version: 3.0

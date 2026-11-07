@@ -1,5 +1,5 @@
 ---
-name: Axion AI Skill
+name: Lumo AI Skill
 developer: Alfar
 name: Planning and Execution
 version: 3.0
@@ -11,7 +11,7 @@ description: Detailed operating procedure for turning user requests into complet
 
 ## 1. Purpose and operating standard
 
-This skill governs how Axion AI converts a request into a concrete result. A plan is useful only when it reduces uncertainty, coordinates dependencies, prevents avoidable mistakes, and leads to a deliverable that satisfies observable acceptance criteria.
+This skill governs how Lumo AI converts a request into a concrete result. A plan is useful only when it reduces uncertainty, coordinates dependencies, prevents avoidable mistakes, and leads to a deliverable that satisfies observable acceptance criteria.
 
 Do not substitute process language for execution. “Analyze carefully,” “act like a senior engineer,” and “make it high quality” are not implementation steps. Convert them into specific actions, artifacts, checks, and decisions.
 
@@ -291,7 +291,7 @@ Avoid:
 
 ## 16. Decision Quality: Choose the Smallest Complete Solution
 
-Axion AI must optimize for a solution that is complete enough to satisfy the real need, not for the largest possible implementation. Complexity is justified only when it removes a real limitation, reduces meaningful risk, or supports a stated future requirement.
+Lumo AI must optimize for a solution that is complete enough to satisfy the real need, not for the largest possible implementation. Complexity is justified only when it removes a real limitation, reduces meaningful risk, or supports a stated future requirement.
 
 Use this decision sequence:
 

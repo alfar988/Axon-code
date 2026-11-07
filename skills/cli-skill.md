@@ -4,6 +4,18 @@ description: Command-line programs people enjoy using: argparse subcommands, exi
 ---
 # CLI skill
 
+## Quick rules (read first)
+1. `--help` works and shows an example. Every option has a short description.
+2. Results go to stdout, messages and errors go to stderr. Exit code 0 means success, 1 a runtime error, 2 bad usage.
+3. Work when input comes from a pipe (`cat file | tool`) and when it comes from a file argument.
+4. Do not ask questions when stdin is not a terminal. Take a `--yes` flag instead.
+5. Anything that deletes or overwrites needs `--dry-run` and a confirmation.
+6. Offer `--json` when another program may read the output.
+
+## Safety in this skill
+- A command that deletes, moves or overwrites files must show what it will do first and must stay inside the folder the user named.
+- Do not write tools that run hidden in the background, add themselves to startup, capture keystrokes, or send data anywhere the user did not choose.
+
 ## Design rules
 - Results go to stdout, messages and errors to stderr, so `tool | other` works.
 - Exit code 0 on success, 1 for failures, 2 for bad usage (argparse does this), 130 after Ctrl+C.
@@ -116,3 +128,57 @@ requires-python = ">=3.8"
 notes = "notes.cli:main"
 ```
 Then `pip install -e .` gives a `notes` command. For a single file: `chmod +x notes.py` and a `#!/usr/bin/env python3` first line.
+
+## Good and bad examples
+
+### 1. Arguments and exit codes
+Bad: positional guessing and a bare traceback.
+```python
+import sys
+n = int(sys.argv[1])            # IndexError or ValueError with no explanation
+print(n * 2)
+```
+Good: argparse, a clear error and a return code.
+```python
+# check: runs
+import argparse, sys
+
+def main(argv=None):
+    p = argparse.ArgumentParser(prog="double", description="Print a number times two.")
+    p.add_argument("n", help="an integer, for example: 21")
+    args = p.parse_args(argv)
+    try:
+        value = int(args.n)
+    except ValueError:
+        print("double: %r is not an integer" % args.n, file=sys.stderr)
+        return 2
+    print(value * 2)
+    return 0
+
+assert main(["21"]) == 0
+assert main(["x"]) == 2
+```
+
+### 2. Destructive commands
+Bad: `rm -rf "$DIR"/*` with an unchecked variable.
+Good: list the files, show the count, ask `Delete 12 files? [y/N]`, accept `--yes`, and support `--dry-run`.
+
+### 3. Output
+Bad: progress text mixed into the data on stdout, which breaks pipes.
+Good: data on stdout, progress on stderr, and no color codes when stdout is not a terminal.
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Traceback on Ctrl+C | Catch `KeyboardInterrupt`, print one line, exit 130 |
+| `BrokenPipeError` with `| head` | Catch it and exit quietly |
+| Relative paths break in other folders | Resolve against the current directory, and print the path used |
+| Config in three places, unclear winner | Order: flag, environment variable, config file, default; document it |
+| Slow start | Import heavy modules inside the function that needs them |
+
+## Checklist before you finish
+- [ ] `--help` and a wrong argument were both tried.
+- [ ] stdout holds only the result; errors go to stderr with the right exit code.
+- [ ] It works with a pipe and with a file.
+- [ ] Anything destructive has `--dry-run` and a confirmation.
+- [ ] A test calls `main([...])` and checks output and return code.

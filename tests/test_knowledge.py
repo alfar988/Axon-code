@@ -9,21 +9,21 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import axion.tools  # noqa: E402,F401  (registers every tool)
-from axion import agent, knowledge, skills  # noqa: E402
-from axion.skills import list_skills, pick_skills  # noqa: E402
-from axion.state import Ctx, ToolError  # noqa: E402
+import lumo.tools  # noqa: E402,F401  (registers every tool)
+from lumo import agent, knowledge, skills  # noqa: E402
+from lumo.skills import list_skills, pick_skills  # noqa: E402
+from lumo.state import Ctx, ToolError  # noqa: E402
 
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self.tmp = Path(tempfile.mkdtemp(prefix="axion_home_"))
+        self.tmp = Path(tempfile.mkdtemp(prefix="lumo_home_"))
         self.saved = (knowledge.KNOWLEDGE_DIR, knowledge.LESSONS_FILE, knowledge.SKILLS_DIR, skills.SKILLS_DIR, knowledge.ask)
         knowledge.KNOWLEDGE_DIR = self.tmp / "knowledge"
         knowledge.LESSONS_FILE = self.tmp / "knowledge" / "lessons.jsonl"
         knowledge.SKILLS_DIR = skills.SKILLS_DIR = self.tmp / "skills"
         knowledge.ask = lambda *a, **k: (True, "")
-        self.ctx = Ctx({"model": "x/y"}, Path(tempfile.mkdtemp(prefix="axion_ws_")))
+        self.ctx = Ctx({"model": "x/y"}, Path(tempfile.mkdtemp(prefix="lumo_ws_")))
 
     def tearDown(self):
         knowledge.KNOWLEDGE_DIR, knowledge.LESSONS_FILE, knowledge.SKILLS_DIR, skills.SKILLS_DIR, knowledge.ask = self.saved

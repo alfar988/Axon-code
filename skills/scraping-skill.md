@@ -4,6 +4,17 @@ description: Collect data from websites responsibly: look for an API first, hono
 ---
 # Scraping skill
 
+## Quick rules (read first)
+1. Use the official API first, then an RSS or JSON feed, and only then the HTML page.
+2. Read the site's terms and `robots.txt`. If the site forbids it, do not scrape it.
+3. Be polite: identify yourself in the User-Agent, wait between requests, cache pages, and stop when the server asks you to slow down (429).
+4. Use timeouts and retries with growing delays. Handle every error.
+5. Parse with the standard library (`html.parser`, `json`, `csv`). Save the result as CSV or JSON.
+
+## Safety in this skill
+- Do not collect personal data about private people, build contact lists for spam, or copy content that is not yours to copy.
+- Do not get around logins, paywalls, captchas, rate limits or blocks (rotating proxies or fake browsers to avoid a ban). Do not hammer a server: a few requests per second is already a lot for a small site.
+
 ## Order of preference
 1. An official API or a data download. Check the site's developer docs and `/sitemap.xml`.
 2. A JSON endpoint the page itself calls (browser dev tools, Network tab; or search the page source for `fetch(` and `.json`).
@@ -129,3 +140,77 @@ CSV for tables (`csv.DictWriter`), JSON lines for nested data, SQLite for anythi
 
 ## Pages that need JavaScript
 Look for the underlying JSON call first. If there is none, a headless browser (Playwright) is the heavy option and may not exist on a phone; say so and offer the API or a manual export instead.
+
+## Good and bad examples
+
+### 1. Checking robots.txt
+Bad: fetch every path without looking.
+Good: parse the rules and ask before each fetch.
+```python
+# check: runs
+from urllib.robotparser import RobotFileParser
+
+rp = RobotFileParser()
+rp.parse(["User-agent: *", "Disallow: /private/"])
+assert rp.can_fetch("my-bot", "https://example.com/blog/")
+assert not rp.can_fetch("my-bot", "https://example.com/private/data")
+```
+
+### 2. Parsing
+Bad: a regular expression on HTML, which breaks on any change.
+Good: a small parser.
+```python
+# check: runs
+from html.parser import HTMLParser
+
+class Links(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.links = []
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "a":
+            href = dict(attrs).get("href")
+            if href:
+                self.links.append(href)
+
+p = Links()
+p.feed('<p><a href="/a">A</a> <a name="x">no href</a> <a href="/b">B</a></p>')
+assert p.links == ["/a", "/b"]
+```
+
+### 3. Retrying
+Bad: `while True: fetch()` in a tight loop. Good: wait longer after every failure, with a cap.
+```python
+# check: runs
+def backoff_delays(retries=4, base=1.0, cap=30.0):
+    return [min(cap, base * 2 ** i) for i in range(retries)]
+
+assert backoff_delays() == [1.0, 2.0, 4.0, 8.0]
+assert backoff_delays(6, cap=10.0)[-1] == 10.0
+```
+
+### 4. Identity
+Bad: pretend to be a normal browser to avoid blocks.
+Good: `User-Agent: my-tool/1.0 (+contact address)`, so the site owner can reach you.
+
+### 5. Repeated pages
+Bad: download the same page ten times while debugging.
+Good: save each response to disk named by a hash of the URL, and reuse it.
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Empty result | The page builds its content with JavaScript; look for the JSON endpoint it calls |
+| `403` or `429` | Slow down, check the terms, or stop; do not disguise the client |
+| Garbled characters | Decode with the charset from the response header, falling back to UTF-8 |
+| Relative links | Join them with `urllib.parse.urljoin(base, href)` |
+| Duplicates | Keep a set of seen URLs |
+| Long run lost on error | Write results as you go |
+
+## Checklist before you finish
+- [ ] An API or feed was considered first; terms and robots.txt were checked.
+- [ ] Delays, timeouts, retries and a clear User-Agent are in place.
+- [ ] No personal data of private people is collected; no block is bypassed.
+- [ ] Results are saved to CSV or JSON, and errors are counted and reported.
+- [ ] I ran it on a few pages first and showed the output.

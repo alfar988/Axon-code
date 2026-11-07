@@ -11,12 +11,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("AXION_HOME", tempfile.mkdtemp(prefix="axion_test_home_"))
+os.environ.setdefault("LUMO_HOME", tempfile.mkdtemp(prefix="lumo_test_home_"))
 
-from axion.cli import *  # noqa: F401,F403,E402  (registers every tool)
-from axion.config import CHAT_TOOLS, PLAN_TOOLS  # noqa: E402
-from axion.skills import pick_skills  # noqa: E402
-from axion.state import Ctx  # noqa: E402
+from lumo.cli import *  # noqa: F401,F403,E402  (registers every tool)
+from lumo.config import CHAT_TOOLS, PLAN_TOOLS  # noqa: E402
+from lumo.skills import pick_skills  # noqa: E402
+from lumo.state import Ctx  # noqa: E402
 
 IMPORTED = ("skill-complex-thinking", "skill-deep-research-fact-checking", "skill-game-development-implementation",
             "skill-memory-knowledge-management", "skill-planning", "skill-ui-css-color")
@@ -74,7 +74,7 @@ class StayInScope(unittest.TestCase):
         files = [p for p in (ROOT / "skills").glob("*.md") if p.stem not in IMPORTED] + list((ROOT / "prompts").glob("*.md")) + [ROOT / "templates" / "manifest.json", ROOT / "README.md"]
         for p in files:
             self.assertIsNone(forbidden.search(p.read_text(encoding="utf-8")), p.name)
-        src = (ROOT / "axion" / "tools" / "project.py").read_text(encoding="utf-8") + (ROOT / "axion" / "templates.py").read_text(encoding="utf-8")
+        src = (ROOT / "lumo" / "tools" / "project.py").read_text(encoding="utf-8") + (ROOT / "lumo" / "templates.py").read_text(encoding="utf-8")
         self.assertIsNone(forbidden.search(src))
 
     def test_every_template_customization_list_is_request_driven(self):

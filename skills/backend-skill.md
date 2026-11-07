@@ -4,6 +4,18 @@ description: Build and test backends and APIs: stdlib, Flask, FastAPI and Expres
 ---
 # Backend skill (APIs, servers, databases)
 
+## Quick rules (read first)
+1. Validate every input at the edge: type, length, range, allowed values. Reject early with a clear message.
+2. SQL always uses parameters (`?` or `%s`), never string building.
+3. Errors are JSON with the right status: 400 bad input, 401 not signed in, 403 not allowed, 404 missing, 409 conflict, 422 invalid, 500 your bug. Never send a stack trace to the client.
+4. Secrets come from environment variables. Passwords are hashed with a salt (scrypt or PBKDF2), never stored or logged.
+5. List endpoints are paginated and capped. Request bodies have a size limit. Outgoing calls have a timeout.
+6. Run it and call it with `curl` before saying it works.
+
+## Safety in this skill
+- Do not build backends whose purpose is to collect other people's passwords or personal data, send unsolicited bulk messages, hide an admin backdoor, or bypass another service's login or licence.
+- Authentication, admin routes and file upload deserve extra care: check who is calling before doing anything.
+
 ## Choose the stack in one minute
 Check what exists (`run_shell: python3 --version; node --version; pip list | head`). No packages and no internet? Use the **stdlib server** below. Python available with pip: **FastAPI** (typed, auto docs) or **Flask** (tiny). Node available: **Express**. Storage: SQLite (`sqlite3` is in the stdlib) unless the user needs multi-user scale. Do not add Docker, ORMs, queues or microservices unless asked.
 
@@ -173,3 +185,75 @@ curl -s -X POST localhost:8000/items -d 'not json'          # must return 400, n
 | 422 on a valid request | Wrong Content-Type or field names | Send `Content-Type: application/json` and exact field names |
 | `database is locked` | Concurrent writes without timeout | `sqlite3.connect(db, timeout=10)`, short transactions |
 | CORS error in the browser | Missing headers | Allow the exact origin, handle the OPTIONS preflight |
+
+## Good and bad examples
+
+### 1. SQL
+Bad: user text goes straight into the query.
+```python
+cur.execute(f"SELECT * FROM users WHERE name = '{name}'")      # name = "x' OR '1'='1" returns everyone
+```
+Good:
+```python
+cur.execute("SELECT id, name FROM users WHERE name = ?", (name,))
+```
+
+### 2. Errors
+Bad: status 200 with an error hidden in the body, or a raw traceback.
+```json
+{"ok": false, "error": "Traceback (most recent call last): ..."}
+```
+Good: the right status and a stable message.
+```json
+{"error": "name is required"}
+```
+with HTTP status 400.
+
+### 3. Passwords
+Bad: `hashlib.sha256(password).hexdigest()` is fast to brute-force and has no salt.
+Good: a salted, slow hash and a constant-time compare.
+```python
+# check: runs
+import hashlib, hmac, os
+
+def hash_password(password, salt=None):
+    salt = salt or os.urandom(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 200_000)
+    return salt.hex() + ":" + digest.hex()
+
+def check_password(password, stored):
+    salt_hex, digest_hex = stored.split(":")
+    again = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt_hex), 200_000)
+    return hmac.compare_digest(again.hex(), digest_hex)
+
+stored = hash_password("correct horse")
+assert check_password("correct horse", stored)
+assert not check_password("wrong", stored)
+assert stored != hash_password("correct horse")        # a fresh salt each time
+```
+
+### 4. Lists
+Bad: `SELECT * FROM items` returns a million rows.
+Good: `SELECT id, title FROM items ORDER BY id LIMIT ? OFFSET ?` with `limit` capped at 100.
+
+### 5. Secrets
+Bad: `API_KEY = "sk-live-123"` in the source file.
+Good: `API_KEY = os.environ["API_KEY"]`, a `.env.example` with fake values, and `.env` in `.gitignore`.
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| CORS set to `*` with cookies | Allow only the origins that need it |
+| Trusting an id from the client | Check that the signed-in user owns that record |
+| One giant handler | Split: parse, validate, act, respond |
+| Port already in use | `PORT` from the environment, or pick another and say which |
+| Works locally, fails after restart | Data in memory only: add a database or a file and say where it lives |
+| Slow requests | Add an index, cap the page size, avoid a query per row |
+| Request hangs forever | Set timeouts on outgoing calls and on the server |
+
+## Checklist before you finish
+- [ ] Every input is validated and every query uses parameters.
+- [ ] Error responses use the right status and no internals.
+- [ ] No secret in the code, the logs or git.
+- [ ] Lists are paginated, bodies are size-limited, calls have timeouts.
+- [ ] I started the server and called each route with `curl`, including a bad input.

@@ -1,5 +1,5 @@
 ---
-name: Axion AI Skill
+name: Lumo AI Skill
 developer: Alfar
 name: Deep Research and Fact Checking
 version: 3.0

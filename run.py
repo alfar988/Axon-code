@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Axion Code launcher.
+"""Lumo Code launcher.
 
     python run.py                 start in ~/workspace
     python run.py ~/projects/app  start in a folder of your choice
@@ -17,10 +17,10 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 if sys.version_info < (3, 8):
-    sys.exit("Axion Code needs Python 3.8 or newer.")
+    sys.exit("Lumo Code needs Python 3.8 or newer.")
 
-from axion.cli import main  # noqa: E402
-from axion.ui import out    # noqa: E402
+from lumo.cli import main  # noqa: E402
+from lumo.ui import out    # noqa: E402
 
 if __name__ == "__main__":
     try:

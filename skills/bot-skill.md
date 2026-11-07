@@ -4,6 +4,18 @@ description: Chat bots that keep running: Telegram long polling and webhooks, a 
 ---
 # Bot skill
 
+## Quick rules (read first)
+1. Keep the logic in plain functions that take a message and return a reply. The network layer only moves messages. This makes the bot testable without a token.
+2. The token comes from an environment variable. Never print it, log it or commit it.
+3. Every command has an answer: a known command works, an unknown one gets a short help text.
+4. Handle rate limits (HTTP 429) by waiting the time the API says, then retrying.
+5. Handlers must be safe to run twice, because updates can be delivered again.
+6. Confirm before anything destructive (delete, ban, mass message).
+
+## Safety in this skill
+- Do not build spam or mass-DM bots, bots that join groups to advertise, bots that collect users' private data, one-time-code forwarders, or tools that impersonate a person or a company.
+- Follow the platform's terms and rate limits. Message people only after they started the chat.
+
 ## Choose the transport
 | Option | Use when |
 |---|---|
@@ -132,3 +144,54 @@ Store per-user data in SQLite (see database-skill), not in memory: the bot resta
 
 ## Checklist
 Token only from the environment. Unknown commands get a friendly answer. Network errors retry with a pause instead of crashing. Replies are split under the length limit. The bot never echoes secrets and ignores messages from other bots.
+
+## Good and bad examples
+
+### 1. Logic and network
+Bad: the reply logic lives inside the polling loop, so it cannot be tested.
+```python
+while True:
+    for u in get_updates():
+        if u["message"]["text"] == "/start":
+            send(u["message"]["chat"]["id"], "Hello")
+```
+Good: a pure function plus a thin loop.
+```python
+# check: runs
+def reply(text):
+    text = (text or "").strip()
+    if text == "/start":
+        return "Hello. Send /help for commands."
+    if text == "/help":
+        return "Commands: /start, /help"
+    return "Unknown command. Send /help."
+
+assert reply("/start").startswith("Hello")
+assert "Unknown" in reply("/nope")
+assert reply(None) == "Unknown command. Send /help."
+```
+
+### 2. Token
+Bad: `TOKEN = "123456:ABC..."` in the file.
+Good: `TOKEN = os.environ.get("TELEGRAM_TOKEN")` and, if it is missing, print `TELEGRAM_TOKEN is not set` to stderr and exit with status 1.
+
+### 3. Sending too fast
+Bad: a loop that sends 500 messages with no pause, which gets the bot blocked.
+Good: send one message per second to different chats, and when the API answers 429, wait for `retry_after` seconds.
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Bot answers its own messages in a loop | Ignore updates where the sender is a bot |
+| Same update handled twice | Remember the last update id and ask for `offset = last + 1` |
+| Crash on a photo or sticker (no `text`) | Use `message.get("text")` and handle `None` |
+| Blocking call freezes the bot | Use timeouts; keep long work out of the handler |
+| Dies when the connection drops | Catch network errors, wait, retry with a growing delay |
+| Dies when Termux sleeps | `termux-wake-lock`, and run inside `tmux` |
+
+## Checklist before you finish
+- [ ] The reply logic is a function with tests that run without a token.
+- [ ] The token is read from the environment and never printed.
+- [ ] Unknown input gets a helpful reply; media without text does not crash it.
+- [ ] 429 and network errors are retried with a delay.
+- [ ] The bot only messages people who started the conversation.

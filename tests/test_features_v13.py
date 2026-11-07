@@ -16,16 +16,16 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("AXION_HOME", tempfile.mkdtemp(prefix="axion_test_home_"))
+os.environ.setdefault("LUMO_HOME", tempfile.mkdtemp(prefix="lumo_test_home_"))
 
-from axion.cli import *  # noqa: F401,F403,E402  (registers every tool)
-from axion import models, providers  # noqa: E402
-from axion.config import MODELS_TTL, PLAN_MAX_STEPS  # noqa: E402
-from axion.memory import plan_markdown  # noqa: E402
-from axion.prompts import build_system  # noqa: E402
-from axion.skills import activate_skill, skill_mode  # noqa: E402
-from axion.state import Ctx, ToolError  # noqa: E402
-from axion.tools.registry import TOOLS  # noqa: E402
+from lumo.cli import *  # noqa: F401,F403,E402  (registers every tool)
+from lumo import models, providers  # noqa: E402
+from lumo.config import MODELS_TTL, PLAN_MAX_STEPS  # noqa: E402
+from lumo.memory import plan_markdown  # noqa: E402
+from lumo.prompts import build_system  # noqa: E402
+from lumo.skills import activate_skill, skill_mode  # noqa: E402
+from lumo.state import Ctx, ToolError  # noqa: E402
+from lumo.tools.registry import TOOLS  # noqa: E402
 
 
 def order(ids, **extra):
@@ -131,8 +131,8 @@ class ModelList(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp(prefix="axml_"))
         self.addCleanup(shutil.rmtree, str(tmp), True)
         self.cache = tmp / "models_cache.json"
-        for p in (mock.patch.dict(os.environ, {"AXION_API_BASE": "http://127.0.0.1:%d/api/v1" % self.srv.server_address[1]}),
-                  mock.patch("axion.models.MODELS_CACHE", self.cache)):
+        for p in (mock.patch.dict(os.environ, {"LUMO_API_BASE": "http://127.0.0.1:%d/api/v1" % self.srv.server_address[1]}),
+                  mock.patch("lumo.models.MODELS_CACHE", self.cache)):
             p.start()
             self.addCleanup(p.stop)
 
@@ -196,8 +196,8 @@ class ModelList(unittest.TestCase):
         srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H2)
         threading.Thread(target=srv.serve_forever, daemon=True).start()
         self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
-        with mock.patch.dict(os.environ, {"AXION_API_BASE": "http://127.0.0.1:%d/v1" % srv.server_address[1], "XAI_API_KEY": "xai-test-123456"}):
-            with mock.patch("axion.models.save_config"):
+        with mock.patch.dict(os.environ, {"LUMO_API_BASE": "http://127.0.0.1:%d/v1" % srv.server_address[1], "XAI_API_KEY": "xai-test-123456"}):
+            with mock.patch("lumo.models.save_config"):
                 ctx = make_ctx()
                 providers.switch(ctx.cfg, "xai")
                 self.assertEqual(models.auto_pick_model(ctx), "grok-4")
@@ -210,9 +210,9 @@ class CheckLimit(unittest.TestCase):
 import sys, time, tempfile
 from pathlib import Path
 sys.path.insert(0, %(root)r)
-from axion.cli import *
-from axion.state import Ctx
-from axion.limits import cmd_checklimit
+from lumo.cli import *
+from lumo.state import Ctx
+from lumo.limits import cmd_checklimit
 ctx = Ctx(dict({"model": "m/a:free"}, **%(cfg)r), Path(tempfile.mkdtemp()))
 ctx.rate_info = %(seed)r
 for v in ctx.rate_info.values():
@@ -252,7 +252,7 @@ cmd_checklimit(ctx, %(args)r)
     def run_cmd(self, port, cfg, key_env, args=(), seed=None):
         env = {k: v for k, v in os.environ.items() if not k.endswith("_API_KEY")}
         env.update(key_env)
-        env.update({"AXION_HOME": tempfile.mkdtemp(prefix="axlim_"), "AXION_API_BASE": "http://127.0.0.1:%d/v1" % port, "NO_COLOR": "1", "PYTHONIOENCODING": "utf-8"})
+        env.update({"LUMO_HOME": tempfile.mkdtemp(prefix="axlim_"), "LUMO_API_BASE": "http://127.0.0.1:%d/v1" % port, "NO_COLOR": "1", "PYTHONIOENCODING": "utf-8"})
         code = self.DRIVER % {"root": str(ROOT), "cfg": cfg, "seed": seed or {}, "args": list(args)}
         p = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=120)
         self.assertEqual(p.returncode, 0, p.stderr[-800:])
@@ -331,7 +331,7 @@ class AiChosenSkills(unittest.TestCase):
 
     def test_the_mode_command(self):
         ctx = make_ctx()
-        with mock.patch("axion.commands.save_config"):
+        with mock.patch("lumo.commands.save_config"):
             handle_command(ctx, "/skill mode auto")
             self.assertEqual(skill_mode(ctx), "auto")
             handle_command(ctx, "/skill mode ai")
@@ -341,7 +341,7 @@ class AiChosenSkills(unittest.TestCase):
 class RicherPlans(unittest.TestCase):
     def submit(self, ctx=None, **kw):
         ctx = ctx or make_ctx()
-        args = dict({"title": "Bunny Garden", "summary": "2D game", "steps": [{"title": "Write the loop", "verify": "page_check shows draw calls"}, {"title": "Add the menu", "verify": "menu opens"}]}, **kw)
+        args = dict({"title": "Parcel Run", "summary": "2D game", "steps": [{"title": "Write the loop", "verify": "page_check shows draw calls"}, {"title": "Add the menu", "verify": "menu opens"}]}, **kw)
         return ctx, TOOLS["submit_plan"]["fn"](args, ctx)
 
     def test_new_fields_are_stored_and_written_to_the_markdown(self):
@@ -393,7 +393,7 @@ class License(unittest.TestCase):
         self.assertIn("## Providers and keys", readme)
 
     def test_changelog_matches_the_version(self):
-        from axion.config import VERSION
+        from lumo.config import VERSION
         self.assertTrue(re.search(r"## \[%s\]" % re.escape(VERSION), (ROOT / "CHANGELOG.md").read_text(encoding="utf-8")))
 
 

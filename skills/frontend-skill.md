@@ -6,6 +6,18 @@ description: Build web apps with plain HTML/CSS/JS: state and render pattern, ev
 
 For calculators, trackers, dashboards, quizzes, small tools. One self-contained file unless the user wants a project. **Start from the template:** `use_template(name="web-app", path="index.html", vars={"TITLE": "..."})`, then adapt it. It already contains everything below, tested.
 
+## Quick rules (read first)
+1. Keep one `state` object. A `render()` function draws the page from it. Events change the state and call `render()`.
+2. Put user text on the page with `textContent`, never `innerHTML`.
+3. Wrap `localStorage` in `try/catch`: it can be blocked or full, and the page must still work.
+4. Every input has a `<label>`. Every button has text or an `aria-label`. Everything works with the keyboard.
+5. Show all four states of anything that loads: loading, empty, error, success.
+6. Put the script at the end of the body or use `defer`. Do not use a library for something three lines of code can do.
+
+## Safety in this skill
+- Do not build pages that copy what people type into a form to a third party, imitate a login page of another service, fingerprint visitors, run hidden code such as a cryptominer, or load scripts you cannot name and justify.
+- Always treat text from users, URLs and APIs as untrusted: no `innerHTML`, `eval` or `document.write` with it.
+
 ## The pattern: state -> render -> events
 ```javascript
 const state = { items: [], filter: "all" };            // the only source of truth
@@ -85,3 +97,80 @@ Do not re-render the whole list for a counter change; update only the text node.
 
 ## Finish
 `verify_files`, `review_ui` (fix HIGH and MEDIUM), then `preview_web` and tell the user how to open it.
+
+## Good and bad examples
+
+### 1. Showing user text
+Bad: a comment containing `<img src=x onerror=...>` runs code.
+```js
+list.innerHTML += "<li>" + comment + "</li>";
+```
+Good:
+```js
+// check: syntax
+function addComment(list, comment) {
+  const li = document.createElement("li");
+  li.textContent = comment;
+  list.appendChild(li);
+}
+```
+
+### 2. Saving data
+Bad: `localStorage.setItem("score", n)` throws in private mode and the page stops.
+Good:
+```js
+// check: syntax
+function saveScore(n) {
+  try { localStorage.setItem("score", String(n)); } catch (e) { /* storage unavailable: keep playing */ }
+}
+function loadScore() {
+  try { return Number(localStorage.getItem("score")) || 0; } catch (e) { return 0; }
+}
+```
+
+### 3. Loading data
+Bad: assume the request works.
+```js
+const items = await (await fetch("/api/items")).json();
+render(items);
+```
+Good: handle failure and empty results.
+```js
+// check: syntax
+async function loadItems(state, render) {
+  state.status = "loading"; render();
+  try {
+    const res = await fetch("/api/items");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    state.items = await res.json();
+    state.status = state.items.length ? "ready" : "empty";
+  } catch (e) {
+    state.status = "error"; state.message = "Could not load items. Check your connection and try again.";
+  }
+  render();
+}
+```
+
+### 4. Forms
+Bad: a placeholder used as the only label, and an error that only turns the border red.
+Good: `<label for="email">Email</label>` and a message under the field: "Enter an address like name@example.com."
+
+### 5. Buttons
+Bad: `<div onclick="save()">Save</div>`. Good: `<button type="button">Save</button>` (focusable, keyboard-friendly, announced as a button).
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Script runs before the element exists | Use `defer` or put the script at the end of `<body>` |
+| Handlers lost after re-render | Put one listener on the parent and check `event.target` |
+| Page jumps while loading | Reserve space with `min-height` or a skeleton |
+| Mobile keyboard covers the input | Use `scrollIntoView({block: "center"})` on focus |
+| Huge list freezes the page | Render a page at a time, or use a simple virtual list |
+| Works only with the mouse | Test Tab, Enter and Escape |
+
+## Checklist before you finish
+- [ ] State, render and events are separate and easy to follow.
+- [ ] No `innerHTML` with outside text; storage is wrapped in `try/catch`.
+- [ ] Loading, empty, error and success states all exist.
+- [ ] Labels, focus and keyboard use work; it fits a 360px screen.
+- [ ] I opened the page (or ran `page_check`) and there are no console errors.

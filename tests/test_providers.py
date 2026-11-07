@@ -14,10 +14,10 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("AXION_HOME", tempfile.mkdtemp(prefix="axion_test_home_"))
+os.environ.setdefault("LUMO_HOME", tempfile.mkdtemp(prefix="lumo_test_home_"))
 
-from axion import anthropic_wire, providers  # noqa: E402
-from axion.state import ApiError  # noqa: E402
+from lumo import anthropic_wire, providers  # noqa: E402
+from lumo.state import ApiError  # noqa: E402
 
 
 class Registry(unittest.TestCase):
@@ -60,11 +60,11 @@ class Registry(unittest.TestCase):
             self.assertEqual(providers.key_for({"api_key": "old"}, providers.BY_ID["openai"]), "")
 
     def test_base_override_applies_to_the_active_provider_only(self):
-        with mock.patch.dict(os.environ, {"AXION_API_BASE": "http://127.0.0.1:9/v1/"}):
+        with mock.patch.dict(os.environ, {"LUMO_API_BASE": "http://127.0.0.1:9/v1/"}):
             self.assertEqual(providers.base_url({"provider": "openai"}), "http://127.0.0.1:9/v1")
             self.assertEqual(providers.base_url({"provider": "openai"}, providers.BY_ID["xai"]), "https://api.x.ai/v1")
         with mock.patch.dict(os.environ, {}, clear=False):
-            os.environ.pop("AXION_API_BASE", None)
+            os.environ.pop("LUMO_API_BASE", None)
             os.environ.pop("AXON_API_BASE", None)
             self.assertEqual(providers.base_url({"provider": "custom", "custom_base": "https://h.example/v1/"}), "https://h.example/v1")
 
@@ -280,20 +280,20 @@ class Sessions(unittest.TestCase):
         self.addCleanup(lambda: (srv.shutdown(), srv.server_close()))
         return srv.server_address[1]
 
-    def run_axion(self, port, provider, key_name, key, prompt, model):
+    def run_lumo(self, port, provider, key_name, key, prompt, model):
         home = Path(tempfile.mkdtemp(prefix="axprov_"))
         self.addCleanup(shutil.rmtree, str(home), True)
         ws = home / "ws"
         ws.mkdir()
         env = {k: v for k, v in os.environ.items() if not k.endswith("_API_KEY")}
-        env.update({"AXION_HOME": str(home / "h"), key_name: key, "AXION_API_BASE": "http://127.0.0.1:%d/v1" % port, "NO_COLOR": "1", "PYTHONIOENCODING": "utf-8"})
+        env.update({"LUMO_HOME": str(home / "h"), key_name: key, "LUMO_API_BASE": "http://127.0.0.1:%d/v1" % port, "NO_COLOR": "1", "PYTHONIOENCODING": "utf-8"})
         p = subprocess.run([sys.executable, str(ROOT / "run.py"), str(ws), "--provider", provider, "-m", model, "--auto", "-p", prompt],
                            env=env, capture_output=True, text=True, timeout=240, cwd=str(ROOT))
         return p.stdout + p.stderr, ws, home
 
     def test_anthropic_session_uses_the_native_messages_api_end_to_end(self):
         port = self.serve(FakeAnthropic)
-        out, ws, _home = self.run_axion(port, "anthropic", "ANTHROPIC_API_KEY", "sk-ant-test-key-123456", "create a file hello.txt containing hi", "claude-test")
+        out, ws, _home = self.run_lumo(port, "anthropic", "ANTHROPIC_API_KEY", "sk-ant-test-key-123456", "create a file hello.txt containing hi", "claude-test")
         self.assertEqual((ws / "hello.txt").read_text(encoding="utf-8"), "hi\n", out[-1500:])
         self.assertIn("Done: hello.txt contains hi.", out)
         reqs = [r for r in FakeAnthropic.rec if r["path"].endswith("/messages")]
@@ -305,7 +305,7 @@ class Sessions(unittest.TestCase):
         b = first["body"]
         self.assertTrue(b["stream"] and b["max_tokens"] > 0 and b["model"] == "claude-test")
         self.assertIsInstance(b["system"], str)
-        self.assertIn("Axion Code", b["system"])
+        self.assertIn("Lumo Code", b["system"])
         self.assertEqual(b["messages"][0]["role"], "user")
         write = [t for t in b["tools"] if t["name"] == "write_file"][0]
         self.assertEqual(write["input_schema"]["type"], "object")
@@ -319,7 +319,7 @@ class Sessions(unittest.TestCase):
 
     def test_openai_style_provider_learns_that_a_model_wants_max_completion_tokens(self):
         port = self.serve(FakeOpenAI)
-        out, _ws, home = self.run_axion(port, "openai", "OPENAI_API_KEY", "sk-test-openai-123456", "say pong", "gpt-test")
+        out, _ws, home = self.run_lumo(port, "openai", "OPENAI_API_KEY", "sk-test-openai-123456", "say pong", "gpt-test")
         self.assertIn("pong-7", out)
         chats = [r for r in FakeOpenAI.rec if r["path"].endswith("/chat/completions")]
         self.assertGreaterEqual(len(chats), 2)

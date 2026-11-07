@@ -6,6 +6,18 @@ description: SQLite and SQL in practice: schema design, migrations with user_ver
 
 SQLite covers most apps up to many gigabytes and is a single file. Reach for Postgres when you need many concurrent writers or network access.
 
+## Quick rules (read first)
+1. Every query uses parameters. User text is data, never part of the SQL string.
+2. Several writes that belong together go in one transaction.
+3. SQLite: turn on `PRAGMA foreign_keys = ON` for every connection, and use `with db:` so changes commit or roll back.
+4. Add an index for columns used in `WHERE`, `JOIN` and `ORDER BY` of frequent queries. Check with `EXPLAIN QUERY PLAN`.
+5. Change the schema with an ordered migration, and back up the file first.
+6. Select only the columns you need and always limit lists.
+
+## Safety in this skill
+- Do not write queries or exports whose purpose is to copy other people's personal data, or to get around access control (reading rows the signed-in user does not own).
+- Never store passwords in plain text; store a salted hash. Keep only the personal data the feature needs, and say where the file lives.
+
 ## Open it correctly
 ```python
 # check: runs
@@ -122,3 +134,82 @@ Loading a list, then one query per row, is the usual cause of a slow page. Use a
 
 ## Node
 `node:sqlite` ships with recent Node versions (experimental); `better-sqlite3` is the common package (`npm install better-sqlite3`): `db.prepare("select * from t where id = ?").get(id)`. Same rules: parameters, transactions (`db.transaction(fn)`), indexes.
+
+## Good and bad examples
+
+### 1. Parameters
+Bad: the quote in the name changes the meaning of the query.
+```python
+db.execute("SELECT id FROM users WHERE name = '" + name + "'")
+```
+Good: the text stays data.
+```python
+# check: runs
+import sqlite3
+
+db = sqlite3.connect(":memory:")
+db.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT UNIQUE)")
+db.execute("INSERT INTO users (name) VALUES (?)", ("ann",))
+evil = "x' OR '1'='1"
+assert db.execute("SELECT id FROM users WHERE name = ?", (evil,)).fetchall() == []
+assert db.execute("SELECT id FROM users WHERE name = ?", ("ann",)).fetchone() == (1,)
+```
+
+### 2. Transactions
+Bad: two updates that must happen together, with a crash possible between them.
+Good: one transaction that rolls back as a whole.
+```python
+# check: runs
+import sqlite3
+
+db = sqlite3.connect(":memory:")
+db.execute("CREATE TABLE acct (id INTEGER PRIMARY KEY, bal INTEGER CHECK (bal >= 0))")
+db.executemany("INSERT INTO acct (id, bal) VALUES (?, ?)", [(1, 100), (2, 0)])
+db.commit()
+try:
+    with db:                                    # commit on success, rollback on error
+        db.execute("UPDATE acct SET bal = bal + 150 WHERE id = 2")
+        db.execute("UPDATE acct SET bal = bal - 150 WHERE id = 1")   # breaks the CHECK
+except sqlite3.IntegrityError:
+    pass
+assert [r[0] for r in db.execute("SELECT bal FROM acct ORDER BY id")] == [100, 0]
+```
+
+### 3. Counters
+Bad: read the value, add one in Python, write it back. Two requests at once lose a count.
+Good: let the database do it in one statement.
+```python
+# check: runs
+import sqlite3
+
+db = sqlite3.connect(":memory:")
+db.execute("CREATE TABLE hits (page TEXT PRIMARY KEY, n INTEGER NOT NULL)")
+for _ in range(3):
+    db.execute("INSERT INTO hits (page, n) VALUES (?, 1) ON CONFLICT(page) DO UPDATE SET n = n + 1", ("/home",))
+assert db.execute("SELECT n FROM hits WHERE page = '/home'").fetchone()[0] == 3
+```
+
+### 4. N+1 queries
+Bad: one query for the orders, then one more query per order for its customer.
+Good: one `JOIN`, or one `WHERE id IN (...)` for all the ids.
+
+### 5. Long lists
+Bad: `OFFSET 100000` gets slower as the page number grows.
+Good: keyset pages: `WHERE id > ? ORDER BY id LIMIT 50`, passing the last id you saw.
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| `database is locked` | Keep transactions short; one writer at a time; `PRAGMA busy_timeout = 5000` |
+| Foreign keys not enforced | `PRAGMA foreign_keys = ON` on every new connection |
+| Slow `LIKE '%word%'` | Use FTS5, or accept the cost for small tables |
+| Dates stored as free text | Store ISO 8601 (`2026-11-07T10:00:00Z`) so they sort correctly |
+| Schema change on live data without backup | Copy the file first; make the migration repeatable |
+| `SELECT *` in application code | Name the columns |
+
+## Checklist before you finish
+- [ ] No query is built by joining strings.
+- [ ] Related writes share one transaction.
+- [ ] Foreign keys, unique constraints and NOT NULL express the rules in the schema.
+- [ ] Frequent filters have an index, confirmed with `EXPLAIN QUERY PLAN`.
+- [ ] Lists are limited and paginated; a backup exists before a migration.

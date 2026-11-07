@@ -1,5 +1,5 @@
 ---
-name: Axion AI Skill
+name: Lumo AI Skill
 developer: Alfar
 name: Complex Reasoning and Problem Solving
 version: 3.0

@@ -17,15 +17,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("AXION_HOME", tempfile.mkdtemp(prefix="axion_test_home_"))
+os.environ.setdefault("LUMO_HOME", tempfile.mkdtemp(prefix="lumo_test_home_"))
 
-from axion.cli import *  # noqa: F401,F403,E402  (imports and registers every tool)
-from axion.agent import decide_intent, is_continuation, start_new_task  # noqa: E402
-from axion.prompts import build_system  # noqa: E402
-from axion.skills import pick_skills  # noqa: E402
-from axion.state import Ctx  # noqa: E402
-from axion.tools.registry import TOOLS  # noqa: E402
-from axion.verify import ui_polish_findings, web_files  # noqa: E402
+from lumo.cli import *  # noqa: F401,F403,E402  (imports and registers every tool)
+from lumo.agent import decide_intent, is_continuation, start_new_task  # noqa: E402
+from lumo.prompts import build_system  # noqa: E402
+from lumo.skills import pick_skills  # noqa: E402
+from lumo.state import Ctx  # noqa: E402
+from lumo.tools.registry import TOOLS  # noqa: E402
+from lumo.verify import ui_polish_findings, web_files  # noqa: E402
 
 
 # A page with real, known UI findings (no :focus-visible, no resize handling, no lang attribute).
@@ -246,7 +246,7 @@ class StaysOnTopic(unittest.TestCase):
         wd = Path(tempfile.mkdtemp(prefix="axscope_e2e_"))
         self.addCleanup(shutil.rmtree, str(wd), True)
         (wd / "ws").mkdir()
-        env = dict(os.environ, AXION_API_BASE="http://127.0.0.1:%d/api/v1" % self.port, AXION_HOME=str(wd / "home"),
+        env = dict(os.environ, LUMO_API_BASE="http://127.0.0.1:%d/api/v1" % self.port, LUMO_HOME=str(wd / "home"),
                    OPENROUTER_API_KEY="sk-or-test-1234567890", NO_COLOR="1", PYTHONIOENCODING="utf-8")
         p = subprocess.run([sys.executable, str(ROOT / "run.py"), str(wd / "ws"), "-m", "m/a:free", "--auto"],
                            input="\n".join(lines) + "\n", env=env, capture_output=True, text=True, timeout=240, cwd=str(ROOT))

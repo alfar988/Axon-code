@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.4.0] - 2026-11-06
+
+### Changed
+- The project is now called Lumo Code (it was Axion Code). The Python package is `lumo`, settings live in `~/.lumo`, the project file is `LUMO.md` and the environment variables start with `LUMO_`. Existing installs keep working: `AXION_*` / `AXON_*` variables, `~/.axion` (copied once into `~/.lumo`, the old folder stays) and `AXION.md` are still read.
+- Startup shows a new LUMO wordmark with a color gradient (two sizes for narrow phone screens, plain ASCII fallback, no color when `NO_COLOR` is set). `assets/lumo-banner.svg` is the same logo for the README.
+- The six imported skills keep their text; only the assistant's name changed from Axion AI to Lumo AI, and their checksums in the tests were updated.
+- Example projects in the guides and the README no longer use the playful bunny theme.
+
+### Added
+- All 25 built-in guides were extended. Each now opens with "Quick rules (read first)" and a safety note written for that topic, and ends with good and bad examples, common mistakes with fixes, and a checklist. The runnable examples are executed by the test suite.
+- A new guide, `safety-skill`, with refusal and jailbreak examples (good and bad answers), prompt-injection handling and a decision test for doubtful requests.
+- Safety layers: `prompts/safety-rules.md` is part of every prompt (refusals, jailbreak tricks, prompt injection, secrets), `skills/safety-skill.md` explains how to apply it with good and bad examples, and `lumo/guard.py` refuses blatant requests for malware, fraud tools or weapons before any model request is spent. Defensive and educational wording passes.
+- A hidden limit saver for rate-limited keys. It is not listed in `/help`, in Tab completion or in this README.
+
 ## [1.3.0] - 2026-11-05
 
 ### Added
@@ -60,7 +74,7 @@
 
 ### Changed
 - Prompts: neutral wording, an explicit research protocol, a debugging protocol and a learning step; the agent no longer adds self-promotion to what it generates.
-- The startup banner is a plain header; `/abilities` is now `What Axion Code can do`.
+- The startup banner is a plain header; `/abilities` is now `What Lumo Code can do`.
 - Limit per user message raised from 40 to 60 steps.
 - Template variables are escaped for string literals in code templates.
 - External skills can declare `keywords:` in their front matter for routing.

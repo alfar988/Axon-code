@@ -1,5 +1,5 @@
 ---
-name: Axion AI Skill
+name: Lumo AI Skill
 developer: Alfar
 name: Game Development Implementation Templates
 version: 2.0

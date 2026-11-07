@@ -6,11 +6,23 @@ description: Fix errors systematically and on your own: reproduce, read the erro
 
 When a command, check or test fails you own the fix. Do not ask permission to repair your own bug; do not stop at "it failed". Loop until it passes or you can state the concrete blocker.
 
+## Quick rules (read first)
+1. Read the whole error, from the first line. The last `Caused by:` or the bottom frame of a traceback is usually the real place.
+2. Reproduce it with the exact command. A bug you cannot repeat cannot be proven fixed.
+3. Make one guess at a time, test it with the cheapest check (a print, a smaller input), then change one thing.
+4. Fix the cause, not the symptom. Never silence an error, delete a check or loosen a test to make it pass.
+5. After the fix, run the original failing command again and a nearby case.
+6. Try up to four distinct ideas. Then stop and explain the concrete blocker and what you tried.
+
+## Safety in this skill
+- Do not "fix" a failure by switching off security: certificate checks, authentication, firewalls, `chmod 777`, running as root. If a local test needs a shortcut, say so and keep it out of the real setup.
+- Do not paste secrets, tokens or private data into a search query or a bug report.
+
 ## The loop
 1. **Reproduce.** Run the failing command again and capture the whole output. If you cannot reproduce it, collect facts (versions, input, environment) before changing anything.
 2. **Read the error properly.** The last line is the cause; the last frame inside the user's own file is the location. Note the exact message and line number.
 3. **Locate.** `read_file` around that line, `search_files` for the name and its callers. Never guess names, signatures or paths.
-4. **Hypothesize.** One to three causes, most likely first. Test the cheapest by printing a value, running a smaller example, or reading config. The `[how to fix]` hints Axion appends to failing results are good first guesses.
+4. **Hypothesize.** One to three causes, most likely first. Test the cheapest by printing a value, running a smaller example, or reading config. The `[how to fix]` hints Lumo appends to failing results are good first guesses.
 5. **Fix the root cause**, with the smallest change that makes the behavior correct. No unrelated refactors.
 6. **Confirm.** Re-run the original failing command, then neighbours (verify_files, tests, the feature next to it).
 7. **Explain in two sentences:** cause, fix, how to avoid it.
@@ -81,3 +93,67 @@ Disable half of the code (comment out, early return). If the bug stays, it is in
 
 ## Stop conditions
 After four distinct attempts on the same problem without progress, stop and report: what you tried, what you learned, the most likely cause, and the one thing you need from the user.
+
+## Good and bad examples
+
+### 1. Hiding the error
+Bad: the crash is gone, the wrong answer stays.
+```python
+try:
+    total = sum(prices[item] for item in cart)
+except KeyError:
+    total = 0
+```
+Good: find which item has no price, and say it.
+```python
+# check: runs
+def total_price(cart, prices):
+    total = 0
+    for item in cart:
+        if item not in prices:
+            raise KeyError("no price for %r" % item)
+        total += prices[item]
+    return total
+
+assert total_price(["a", "b"], {"a": 2, "b": 3}) == 5
+try:
+    total_price(["zzz"], {"a": 2})
+except KeyError as e:
+    assert "zzz" in str(e)
+```
+
+### 2. Shotgun changes
+Bad: change the import, the port, the version and a loop at once, then run. If it works, nobody knows why.
+Good: write the guess ("the port is busy"), test it (`lsof -i :8000` or try another port), change that one thing, run again.
+
+### 3. Claiming success
+Bad: "I fixed it." (nothing was run)
+Good: "`python app.py` failed with `KeyError: 'name'` because the form field is called `username`. I changed the lookup and ran it again: it starts and `curl localhost:8000` returns 200."
+
+### 4. Reading a traceback
+```text
+Traceback (most recent call last):
+  File "app.py", line 12, in <module>
+    run()
+  File "app.py", line 8, in run
+    return load("data.json")
+FileNotFoundError: [Errno 2] No such file or directory: 'data.json'
+```
+Bad: "Python is broken." Good: the file is looked up in the current folder. Check `pwd`, then either run from the right folder or build the path from the script's location.
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Fixing the line the error points at, when the cause is earlier | Print the values one step earlier |
+| Retrying the same command hoping it changes | Change one thing between runs |
+| Trusting an old log | Run again and read the new output |
+| A bug that only happens sometimes | Log inputs and timing; look for shared state, time, randomness, order |
+| Fix works but a test now fails | You changed behavior: read the test, decide which one is right |
+| "It works on my machine" | Compare versions, environment variables and working folder |
+
+## Checklist before you finish
+- [ ] I can state the cause in one sentence.
+- [ ] The original failing command now passes, and I ran it.
+- [ ] I changed the cause, not just the message.
+- [ ] No check, test or security setting was removed to get a pass.
+- [ ] If it is not fixed, I listed what I tried and what blocks me.

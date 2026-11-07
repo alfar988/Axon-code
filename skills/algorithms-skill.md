@@ -6,6 +6,18 @@ description: Solve algorithm and data-structure problems correctly and fast: con
 
 Correct first, fast second, and prove both with a test. An algorithm that was never run against a brute force is a guess.
 
+## Quick rules (read first)
+1. Read the limits first and turn them into a target: n up to 1e5 needs about O(n log n); n up to 20 allows O(2^n).
+2. Write the slow, obviously correct version first. Then improve it, and compare both on many small random inputs.
+3. Name the pattern before you code: window, prefix sums, two pointers, heap, BFS or DFS, union-find, binary search on the answer, DP.
+4. Test the edges on purpose: empty input, one element, all equal, duplicates, negatives, the largest allowed size.
+5. Use integers for exact answers. Never compare floats with `==`. Mind `//` and `%` with negative numbers.
+6. Python recursion stops near depth 1000. Use a stack or a loop for deep inputs.
+7. Say the time and memory cost in one line when you answer.
+
+## Safety in this skill
+- Algorithm practice is always fine. Do not write code whose purpose is to brute-force other people's passwords, tokens, PINs or captchas, or to scan accounts you do not own.
+
 ## Method
 1. **Read the constraints.** The input size sets the complexity you can afford:
    | n | affordable | typical technique |
@@ -316,3 +328,96 @@ assert n_queens(6) == 4 and n_queens(8) == 92
 
 Already in the standard library: `bisect`, `heapq` (`merge`, `nlargest`), `collections` (`Counter`, `deque`, `defaultdict`), `itertools` (`permutations`, `combinations`, `accumulate`), `math` (`gcd`, `comb`, `isqrt`), `pow(a, b, m)`.
 JavaScript: `sort()` compares as strings unless you pass `(a, b) => a - b`; numbers are exact only up to 2^53 (use `BigInt`); `%` keeps the sign of the dividend.
+
+## Good and bad examples
+
+### 1. Finding a pair
+Bad: two loops, O(n^2), too slow for 100000 numbers.
+```python
+def two_sum(nums, target):
+    for i in range(len(nums)):
+        for j in range(i + 1, len(nums)):
+            if nums[i] + nums[j] == target:
+                return i, j
+```
+Good: one pass with a dictionary, O(n).
+```python
+# check: runs
+def two_sum(nums, target):
+    seen = {}
+    for i, x in enumerate(nums):
+        if target - x in seen:
+            return seen[target - x], i
+        seen[x] = i
+    return None
+
+assert two_sum([2, 7, 11, 15], 9) == (0, 1)
+assert two_sum([3, 3], 6) == (0, 1)
+assert two_sum([1, 2], 7) is None
+```
+Why: the dictionary answers "have I seen the partner?" in constant time.
+
+### 2. Counting
+Bad: `max(set(a), key=a.count)` calls `count` once per distinct value: O(n^2).
+Good: count once.
+```python
+# check: runs
+from collections import Counter
+
+def most_common_word(words):
+    counts = Counter(words)
+    best = max(counts.values())
+    return sorted(w for w, c in counts.items() if c == best)[0]
+
+assert most_common_word(["b", "a", "b", "a", "c"]) == "a"
+```
+Why: one pass builds all counts, and ties are broken in a defined way.
+
+### 3. Money and exact decimals
+Bad: `0.1 + 0.2 == 0.3` is False with floats.
+Good: count in whole cents, or use `Decimal`.
+```python
+# check: runs
+from decimal import Decimal
+
+total_cents = sum(int(Decimal(p) * 100) for p in ["0.10", "0.20"])
+assert total_cents == 30
+```
+
+### 4. Deep graphs
+Bad: a recursive DFS on a chain of 200000 nodes raises RecursionError.
+Good: an explicit stack.
+```python
+# check: runs
+def count_reachable(graph, start):
+    seen, stack = {start}, [start]
+    while stack:
+        node = stack.pop()
+        for nxt in graph.get(node, ()):
+            if nxt not in seen:
+                seen.add(nxt)
+                stack.append(nxt)
+    return len(seen)
+
+chain = {i: [i + 1] for i in range(200000)}
+assert count_reachable(chain, 0) == 200001
+```
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Coding the clever version first | Write brute force first and keep it as the checker |
+| Off-by-one in binary search or windows | Use `lo < hi` with `mid = (lo + hi) // 2` consistently and test size 1 and 2 |
+| Mutating a list while looping over it | Loop over a copy, or build a new list |
+| `if not x` treating 0 as missing | Compare with `is None` when 0 is valid |
+| Sorting inside a loop | Sort once outside |
+| Using a list for membership tests | Use a set or dict |
+| Forgetting the answer can be "none" | Decide the return value for no solution before coding |
+| Hidden O(n^2) from `s += piece` or `list.insert(0, x)` | Use `"".join(parts)` and `collections.deque` |
+
+## Checklist before you finish
+- [ ] I computed the complexity from the limits and my code meets it.
+- [ ] A brute-force version agrees with mine on hundreds of random small inputs.
+- [ ] Empty, one-element, duplicate and maximum-size inputs were tried.
+- [ ] No float equality, no recursion deeper than 1000, no hidden quadratic loop.
+- [ ] The answer states the cost in one line.

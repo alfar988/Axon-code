@@ -13,19 +13,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
-import axion.tools  # noqa: E402,F401
-from axion.state import Ctx  # noqa: E402
-from axion.templates import t_use_template  # noqa: E402
+import lumo.tools  # noqa: E402,F401
+from lumo.state import Ctx  # noqa: E402
+from lumo.templates import t_use_template  # noqa: E402
 
 SKILLS = ROOT / "skills"
-# Skills imported from outside the project. They are shipped exactly as received and must never be edited here.
+# Skills imported from outside the project. They are shipped as received: the only edit made here is the assistant's
+# name (the old product name -> Lumo AI) in the heading and in the sentences that name the assistant. Any other change must fail.
 IMPORTED = {
-    "skill-complex-thinking.md": "6358a3211bf70f16b43f932f951d277476e0ff4b7b530d3c4a8dbf714d5797b0",
-    "skill-deep-research-fact-checking.md": "c2acea1295a4b712c1674d387bfecb97c86f93f97d6e5c91bab7c488795d5512",
-    "skill-game-development-implementation.md": "0cedad0f3e846abc757935b83eaedc663c1188cf9beb2f94524f338c57eaf330",
-    "skill-memory-knowledge-management.md": "3cfc8f621ba0df7d5601210c7f931a0f96b0e5e244d081f21b589e0eb0a2c119",
-    "skill-planning.md": "120b1446f09d02ed6227f3b3f138d02bda2a129227b32e4178ba94bbaa74f071",
-    "skill-ui-css-color.md": "db2764b1e408e3dd1807420d18167a462cdde2c9e5501a02797947c54da4910e",
+    "skill-complex-thinking.md": "952fb4f72fe5e8ccdfd0af76df7c36ab0d363e77e8d936ed3ed21514fde91210",
+    "skill-deep-research-fact-checking.md": "55dc93415e6e3392f95ade4dbb16b8dbf25754a3f098c485a6c0cafcd2b98950",
+    "skill-game-development-implementation.md": "f33cb3865b555c07ab734a772f688dcd1161f15edc1e59939d2364207a0f0b2e",
+    "skill-memory-knowledge-management.md": "daa457debd5cd95c7f92f7e250e0bf6b917ab5d82fb2dbf2de89fd77d563a249",
+    "skill-planning.md": "3f127219973993ac48c7cfa3e430de91be069d0c3dd010b51ff40b59ee76e742",
+    "skill-ui-css-color.md": "ba5fe84044020f6589261afd44a815040cb98844a4ae1946379c92419244d546",
 }
 
 
@@ -82,7 +83,7 @@ class Skills(unittest.TestCase):
 
 class CodeTemplates(unittest.TestCase):
     def setUp(self):
-        self.ws = Path(tempfile.mkdtemp(prefix="axion_tpl_"))
+        self.ws = Path(tempfile.mkdtemp(prefix="lumo_tpl_"))
         self.ctx = Ctx({"model": "x/y"}, self.ws)
         self.ctx.auto = True
 

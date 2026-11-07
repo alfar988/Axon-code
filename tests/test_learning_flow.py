@@ -87,7 +87,7 @@ class LearningFlow(unittest.TestCase):
 
     def launch(self, wd, mode, prompt):
         STATE["mode"], STATE["log"] = mode, []
-        env = dict(os.environ, AXION_API_BASE="http://127.0.0.1:%d/api/v1" % self.port, AXION_HOME=str(wd / "home"),
+        env = dict(os.environ, LUMO_API_BASE="http://127.0.0.1:%d/api/v1" % self.port, LUMO_HOME=str(wd / "home"),
                    OPENROUTER_API_KEY="sk-or-test-1234567890", NO_COLOR="1", PYTHONIOENCODING="utf-8")
         p = subprocess.run([sys.executable, str(ROOT / "run.py"), str(wd / "ws"), "-m", "m/a:free", "--auto", "-p", prompt],
                            env=env, capture_output=True, text=True, timeout=180, cwd=str(ROOT))

@@ -7,32 +7,46 @@ description: Build complete browser games (2D canvas and 3D Three.js) as one HTM
 The goal is a game that starts, is fun in the first 20 seconds, runs smoothly on a phone, and never crashes. **Do not write the engine from scratch.** Two templates already contain a tested engine (fixed timestep, resize and DPR, touch joystick, keyboard, sound, particles, shake, states, best score):
 
 ```
-use_template(name="game-2d", path="index.html", vars={"TITLE": "Bunny Garden", "ACCENT": "#35c48f"})   # canvas 2D
+use_template(name="game-2d", path="index.html", vars={"TITLE": "Parcel Run", "ACCENT": "#35c48f"})   # canvas 2D
 use_template(name="game-3d", path="index.html", vars={"TITLE": "Gem Arena",   "ACCENT": "#35c48f"})   # Three.js r128
 ```
 For a small change to an existing game (a color, a speed, a bug) edit only that and leave the rest alone. Otherwise pick 2D unless the user asks for 3D, then adapt the template, in this order, with `edit_file` / `append_file` (small edits, never a full rewrite). Keep the engine, replace and extend the content:
 
-## Adapting the 2D template (worked example: "Bunny Garden")
+## Quick rules (read first)
+1. Start from the template and adapt it to what the user described. Do not build an engine from scratch, and do not add mechanics nobody asked for.
+2. Draw something on the very first frame: the title, the player, a "Tap to start". Never ship a black screen.
+3. Use a game loop with a clamped time step: `dt = Math.min(ms, 50) / 1000`.
+4. Support touch and keyboard. A start, a pause and a one-tap restart always exist.
+5. Keep game state in one object, so restarting means creating a fresh one.
+6. Size the canvas for the screen and `devicePixelRatio`. Pause when the tab is hidden.
+7. Start easy and ramp up. Give instant feedback on every action (a sound, a flash, a shake).
+8. Save the best score inside `try/catch`.
+
+## Safety in this skill
+- Games with violence in fiction are fine. Do not add real-money gambling, loot-box or pay-to-win tricks aimed at children, fake "reward" buttons that open ads, hidden redirects or trackers, or content that harasses real people or groups.
+- Do not collect personal data from players. Keep scores on the device unless the user asks for an online board and says where the data goes.
+
+## Adapting the 2D template (worked example: "Parcel Run")
 1. **CONFIG**: world size, speeds, lives, spawn rates, colors. Rename the theme in the overlay texts.
-2. **Rename entities** in names and texts: orb -> carrot, hazard -> bee, player -> bunny.
+2. **Rename entities** in names and texts: orb -> parcel, hazard -> drone, player -> courier.
 3. **Draw functions**: replace `drawPlayer`, `drawOrb`, `drawHazard` with canvas paths for the new look. Keep the same signature, collision uses the circle radius, not the drawing.
 ```javascript
-function drawOrb(o) {                     // a carrot: orange triangle + green leaves, drawn around (o.x, o.y)
+function drawOrb(o) {                     // a parcel: brown box with a lighter tape stripe, drawn around (o.x, o.y)
   ctx.save(); ctx.translate(o.x, o.y); ctx.rotate(Math.sin(o.age * 3) * 0.15);
-  ctx.fillStyle = "#ff9f43"; ctx.beginPath(); ctx.moveTo(-o.r * 0.7, -o.r * 0.6); ctx.lineTo(o.r * 0.7, -o.r * 0.6); ctx.lineTo(0, o.r * 1.3); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = "#4cc38a"; ctx.fillRect(-2, -o.r * 1.2, 4, o.r * 0.6);
+  ctx.fillStyle = "#b9824a"; ctx.fillRect(-o.r, -o.r * 0.8, o.r * 2, o.r * 1.6);          // the box
+  ctx.fillStyle = "#e8c48f"; ctx.fillRect(-o.r * 0.18, -o.r * 0.8, o.r * 0.36, o.r * 1.6);  // the tape
   ctx.restore();
 }
 ```
-4. **New item types**: add a `kind` field in `spawnOrb()` with its own value, radius, lifetime and color (strawberry 20, flower 30). Pick a kind with weighted random: `const r = Math.random(); kind = r < 0.6 ? "carrot" : r < 0.9 ? "berry" : "flower";`.
+4. **New item types**: add a `kind` field in `spawnOrb()` with its own value, radius, lifetime and color (envelope 20, crate 30). Pick a kind with weighted random: `const r = Math.random(); kind = r < 0.6 ? "parcel" : r < 0.9 ? "envelope" : "crate";`.
 5. **New enemy behavior**: in the hazard loop add a `type`: `drifter` (straight), `chaser` (steers toward the player: `h.vx += (P.x - h.x) * 0.4 * dt`), `zigzag` (`h.vx = Math.sin(h.t * 3) * speed`). Cap speeds.
 6. **Tune** `rampSeconds`, `spawn.*`, `comboWindow` by playing the first minute in your head: easy start, then steady pressure.
 7. `verify_files`, `review_ui`, `preview_web`.
 
 ## Fit it to the request (what "done" means for a template)
-A recolored template is a failed job, and so is a template stuffed with features nobody asked for. Axion sends the file back when it is still the starter with different paint, so adapt it to what the user described:
+A recolored template is a failed job, and so is a template stuffed with features nobody asked for. Lumo sends the file back when it is still the starter with different paint, so adapt it to what the user described:
 1. **Their game:** theme, entities, goal, rules and wording come from the request. Remove template mechanics that do not belong; add only mechanics the request names or clearly implies.
-2. **Their art:** redraw every entity for the theme with canvas paths (a carrot, a bee, a bunny with ears) and give the field a matching background, not circles on dots.
+2. **Their art:** redraw every entity for the theme with canvas paths (a parcel, a drone, a courier with a cap) and give the field a matching background, not circles on dots.
 3. **Their screens:** a themed menu, HUD and game-over screen with a real title and real instructions in the user's language.
 4. **Feedback that fits:** a sound and a visual response for each event that exists in the game, tuned to the theme.
 5. **Extras only on request.** Power-ups, bosses, waves, levels, shops and upgrades are recipes below. Use one only when the user asked for it or the request cannot work without it. When in doubt leave it out and polish what was asked.
@@ -154,3 +168,82 @@ function blip(freq, dur) { const o = ac.createOscillator(), g = ac.createGain();
 
 ## Done means
 `verify_files` clean, `review_ui` >= 85, the first frame checked in portrait and landscape, the game starts from the menu, scores, ends and restarts, every requirement the user gave is met and nothing they did not ask for was added. Then tell the user how to open it (`preview_web`, or open the file in a browser). For big games also load the reference skill `skill-game-development-implementation` part by part.
+
+## Good and bad examples
+
+### 1. Time step
+Bad: movement tied to the frame rate, so a slow phone plays slowly and a resumed tab jumps.
+```js
+player.x += 5;
+```
+Good: speed in pixels per second, with a clamped step.
+```js
+// check: runs
+import assert from "node:assert/strict";
+
+const MAX_STEP_MS = 50;
+const stepSeconds = (ms) => Math.min(ms, MAX_STEP_MS) / 1000;
+assert.equal(stepSeconds(16), 0.016);
+assert.equal(stepSeconds(5000), 0.05);      // a tab that slept does not teleport the player
+
+const player = { x: 0, speed: 200 };        // pixels per second
+player.x += player.speed * stepSeconds(16);
+assert.ok(Math.abs(player.x - 3.2) < 1e-9);
+```
+
+### 2. Hit tests
+Bad: compare centers only, so large objects pass through each other.
+Good: circles hit when the distance is at most the sum of the radii (compare squares, no square root).
+```js
+// check: runs
+import assert from "node:assert/strict";
+
+const hit = (a, b) => {
+  const dx = a.x - b.x, dy = a.y - b.y, r = a.r + b.r;
+  return dx * dx + dy * dy <= r * r;
+};
+assert.equal(hit({ x: 0, y: 0, r: 5 }, { x: 8, y: 0, r: 5 }), true);
+assert.equal(hit({ x: 0, y: 0, r: 5 }, { x: 11, y: 0, r: 5 }), false);
+```
+
+### 3. Restarting
+Bad: reset fields one by one and forget one, so the second round starts with old enemies.
+Good: build the whole state from a function.
+```js
+// check: syntax
+function newGame() {
+  return { phase: "ready", score: 0, lives: 3, time: 0, player: { x: 0, y: 0 }, items: [], hazards: [] };
+}
+let game = newGame();
+function restart() { game = newGame(); game.phase = "playing"; }
+```
+
+### 4. The first screen
+Bad: the canvas stays blank until the player taps.
+Good: draw the title, the player and "Tap or press Space to start" on the first frame, and run `page_check` to confirm that draw calls happen.
+
+### 5. Difficulty
+Bad: full speed from the first second, or no change at all.
+Good: a slow start, then a small increase every 20 to 30 seconds, with a cap so it stays fair.
+
+### 6. Feedback
+Bad: collecting an item changes a number silently.
+Good: the item pops, the score ticks up, a short tone plays (after the first tap, because browsers block sound before it).
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Blurry canvas on phones | Set canvas size to `cssSize * devicePixelRatio` and scale the context |
+| Touch scrolls the page | `touch-action: none` on the canvas and `preventDefault` on touch events |
+| Game keeps running in another tab | Pause on `visibilitychange` |
+| Memory grows | Remove dead objects from arrays; reuse particles |
+| Sound does nothing | Create or resume the `AudioContext` inside a tap handler |
+| Controls too small | Make touch buttons at least 56px and keep them out of the play area |
+| Unfair spawns | Do not spawn a hazard on top of the player; give a safe radius |
+
+## Checklist before you finish
+- [ ] The result is built for the user's request, not the starter with new paint.
+- [ ] The first frame shows something; start, pause and restart work with touch and keyboard.
+- [ ] Time step is clamped; a fresh state is created on restart.
+- [ ] It runs at 60 frames per second on a phone-sized canvas in portrait and landscape.
+- [ ] `page_check` ran without errors and best score saving cannot crash the page.

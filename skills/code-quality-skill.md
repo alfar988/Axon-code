@@ -6,6 +6,19 @@ description: Write correct, readable, safe code the first time: structure, namin
 
 Most bad AI code fails in the same few ways. Avoid them on purpose.
 
+## Quick rules (read first)
+1. Read the existing code before you write new code. Match its names, structure and style.
+2. Take the requirements from the user's own words. Do what was asked, completely, and nothing else.
+3. Choose the smallest design that works. A function beats a class; a class beats a framework.
+4. Write complete code: no `TODO`, no `pass` stubs, no `...`, no calls to functions that do not exist.
+5. Handle the bad cases: empty input, wrong type, missing file, network failure. Say what went wrong in plain words.
+6. Put tunable numbers and texts in one place at the top.
+7. Run it. Check each requirement against evidence (a run, a test, a file), then report.
+
+## Safety in this skill
+- Do not write code meant to hide what it does from the user or from security tools (obfuscated payloads, disabling antivirus, fake error screens), or code that collects data the user was not told about.
+- Never `eval` or `exec` text that came from a user, a web page or a file. Respect licenses: do not paste large pieces of someone else's code without saying where it came from.
+
 ## Work in this order
 1. **Read first.** Open the files you will change and the code that calls them. Copy the project's style, names and structure; do not introduce a second way of doing the same thing.
 2. **List the requirements** the user gave, and only those. Anything else is out of scope: leave it out, and mention it in one line at the end if it matters.
@@ -84,7 +97,7 @@ const asInt = (v, d = 0) => { const n = parseInt(v, 10); return Number.isFinite(
 ## Security basics (non-negotiable)
 - **XSS:** never put user text into `innerHTML`. Use `textContent`, or build nodes with `createElement`.
 - **SQL injection:** parameterized queries only: `cur.execute("SELECT * FROM t WHERE id = ?", (item_id,))`. Never build SQL with string formatting.
-- **Secrets:** never in code or git. Read from environment variables; in Axion use `{{NAME}}` placeholders and `/secret set NAME`.
+- **Secrets:** never in code or git. Read from environment variables; in Lumo use `{{NAME}}` placeholders and `/secret set NAME`.
 - **Passwords:** hash with `hashlib.scrypt` (salted); never store or log plain text.
 - **Paths:** never join untrusted input into a file path without checking it stays inside the intended folder.
 - **Shell:** never pass user text into a shell string; pass an argument list (`subprocess.run([...])`).
@@ -141,3 +154,107 @@ Run with `python -m unittest -v`. For browser code, expose a small `window.app` 
 | Catches an error and quietly returns a default | Let it fail loudly, or log it and re-raise |
 | Trusts the first idea on a hard problem | Write a brute force and compare on random small inputs (algorithms-skill) |
 | Says "done" without running anything | Run it and quote the output |
+
+## Good and bad examples
+
+### 1. Placeholders
+Bad: the function looks finished and does nothing.
+```python
+def save_score(name, score):
+    # TODO: write to file
+    pass
+```
+Good: it works, and it fails loudly when it cannot.
+```python
+# check: runs
+import json, os, tempfile
+
+def save_score(path, name, score):
+    data = {}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+    data[name] = max(score, data.get(name, 0))
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f)
+
+p = os.path.join(tempfile.mkdtemp(), "scores.json")
+save_score(p, "ann", 5)
+save_score(p, "ann", 3)
+assert json.load(open(p, encoding="utf-8")) == {"ann": 5}
+```
+
+### 2. Errors
+Bad: the error disappears and the program goes on with wrong data.
+```python
+try:
+    data = json.loads(text)
+except:
+    pass
+```
+Good: catch the specific error and explain it.
+```python
+# check: runs
+import json
+
+def load_config(text):
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError as e:
+        raise ValueError("config is not valid JSON (line %d)" % e.lineno) from e
+    if "port" not in data:
+        raise ValueError("config needs a 'port'")
+    return data
+
+try:
+    load_config("{bad")
+except ValueError as e:
+    assert "not valid JSON" in str(e)
+assert load_config('{"port": 80}')["port"] == 80
+```
+
+### 3. A shared default value
+Bad: the same list is reused by every call.
+```python
+def add_item(item, items=[]):
+    items.append(item)
+    return items
+```
+Good:
+```python
+# check: runs
+def add_item(item, items=None):
+    items = [] if items is None else items
+    items.append(item)
+    return items
+
+assert add_item(1) == [1]
+assert add_item(2) == [2]
+```
+
+### 4. Doing only what was asked
+Bad: the user asked for a score counter and gets a settings page, dark mode, accounts and a leaderboard.
+Good: the counter, with the polish it needs to be good (clear text, responsive layout, keyboard use, error handling), and one line at the end: "A leaderboard would be a natural next step if you want it."
+
+### 5. Size of the solution
+Bad: three classes and a factory for a 20-line script.
+Good: two functions and a `main()`.
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Names like `data2`, `tmp`, `x` | Name things by what they hold: `unpaid_orders` |
+| A function that does five things | Split by reason to change; each function does one |
+| Copy-pasted blocks | Extract one function, or one loop over a table |
+| Silent `except` | Catch the specific error; log or show it |
+| Comments that repeat the code | Comment why, not what |
+| New dependency for one helper | Write the helper, or use the standard library |
+| Changing unrelated files | Touch only what the request needs; mention anything else in one line |
+
+## Checklist before you finish
+- [ ] I read the surrounding code first and followed its style.
+- [ ] Every requirement the user gave is met, and I checked each against evidence.
+- [ ] No placeholder, no unused code, no call to a missing function.
+- [ ] Bad input and failures give a clear message instead of a crash or silence.
+- [ ] I ran the code, or tests, and I state exactly what I ran.
+- [ ] I did not add features, files or notes nobody asked for.

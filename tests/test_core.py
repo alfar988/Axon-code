@@ -1,4 +1,4 @@
-"""Unit tests for the parts of Axion Code that must never regress. Run: python -m unittest discover -s tests -v"""
+"""Unit tests for the parts of Lumo Code that must never regress. Run: python -m unittest discover -s tests -v"""
 import json
 import os
 import shutil
@@ -10,15 +10,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
-os.environ.setdefault("AXION_HOME", tempfile.mkdtemp(prefix="axion_test_home_"))
+os.environ.setdefault("LUMO_HOME", tempfile.mkdtemp(prefix="lumo_test_home_"))
 
-from axion.cli import *  # noqa: F401,F403,E402  (imports and registers every tool)
-import axion.tools  # noqa: F401,E402
-from axion.diagnose import diagnose, is_failure, with_hints  # noqa: E402
-from axion.skills import list_skills, load_manifest, pick_skills, split_parts, skill_body  # noqa: E402
-from axion.state import Ctx  # noqa: E402
-from axion.toolcalls import repair_tool_args, sanitize_messages  # noqa: E402
-from axion.verify import js_undefined_calls, py_undefined_names, ui_review, ui_score  # noqa: E402
+from lumo.cli import *  # noqa: F401,F403,E402  (imports and registers every tool)
+import lumo.tools  # noqa: F401,E402
+from lumo.diagnose import diagnose, is_failure, with_hints  # noqa: E402
+from lumo.skills import list_skills, load_manifest, pick_skills, split_parts, skill_body  # noqa: E402
+from lumo.state import Ctx  # noqa: E402
+from lumo.toolcalls import repair_tool_args, sanitize_messages  # noqa: E402
+from lumo.verify import js_undefined_calls, py_undefined_names, ui_review, ui_score  # noqa: E402
 
 
 class ToolCallRepair(unittest.TestCase):
@@ -96,7 +96,7 @@ class StaticChecks(unittest.TestCase):
 class Skills(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.ws = Path(tempfile.mkdtemp(prefix="axion_ws_"))
+        cls.ws = Path(tempfile.mkdtemp(prefix="lumo_ws_"))
         cls.ctx = Ctx({"model": "x/y"}, cls.ws)
 
     def test_manifest_matches_files(self):
@@ -148,12 +148,12 @@ class Templates(unittest.TestCase):
 
 class Prompts(unittest.TestCase):
     def test_prompt_files_exist_and_fill(self):
-        from axion.prompts import build_system
-        ws = Path(tempfile.mkdtemp(prefix="axion_ws_"))
+        from lumo.prompts import build_system
+        ws = Path(tempfile.mkdtemp(prefix="lumo_ws_"))
         ctx = Ctx({"model": "x/y"}, ws)
         ctx.active_skills = ["game-skill"]
         text = build_system(ctx, "build")
-        for needle in ("Axion Code", "ACTIVE SKILLS", "Tool rules", "use_template", "append_file"):
+        for needle in ("Lumo Code", "ACTIVE SKILLS", "Tool rules", "use_template", "append_file"):
             self.assertIn(needle, text)
         self.assertNotIn("<<", text)
 
@@ -162,7 +162,7 @@ class PlanNormalization(unittest.TestCase):
     """Regression: a plan sent as ONE string used to be split into single characters (one todo per letter)."""
 
     def test_as_items_never_splits_into_characters(self):
-        from axion.util import as_items
+        from lumo.util import as_items
         sentence = "Open and close works, smooth scroll works, CTA shows an alert"
         self.assertEqual(as_items(sentence), [sentence])
         self.assertEqual(as_items("1. First step 2. Second step 3. Third step"), ["First step", "Second step", "Third step"])
@@ -171,8 +171,8 @@ class PlanNormalization(unittest.TestCase):
         self.assertEqual(as_items(["x", "real step"]), ["real step"])
 
     def test_submit_plan_accepts_strings(self):
-        from axion.tools.registry import TOOLS
-        ctx = Ctx({"model": "x/y"}, Path(tempfile.mkdtemp(prefix="axion_ws_")))
+        from lumo.tools.registry import TOOLS
+        ctx = Ctx({"model": "x/y"}, Path(tempfile.mkdtemp(prefix="lumo_ws_")))
         res = TOOLS["submit_plan"]["fn"]({"title": "T", "summary": "S", "steps": "1. Write html 2. Write js 3. Verify",
                                           "features": "a feature, another feature", "verification": "check it works"}, ctx)
         self.assertTrue(res.startswith("OK"))
@@ -181,22 +181,22 @@ class PlanNormalization(unittest.TestCase):
         self.assertEqual(ctx.plan["features"], ["a feature, another feature"])
 
     def test_todo_accepts_strings(self):
-        from axion.tools.registry import TOOLS
-        ctx = Ctx({"model": "x/y"}, Path(tempfile.mkdtemp(prefix="axion_ws_")))
+        from lumo.tools.registry import TOOLS
+        ctx = Ctx({"model": "x/y"}, Path(tempfile.mkdtemp(prefix="lumo_ws_")))
         TOOLS["todo"]["fn"]({"items": "Write the code\nTest it"}, ctx)
         self.assertEqual([t["content"] for t in ctx.todos], ["Write the code", "Test it"])
 
 
 class TemplateCheck(unittest.TestCase):
     def test_recolor_is_flagged_and_real_work_passes(self):
-        from axion.templates import template_novelty, template_nudge
+        from lumo.templates import template_novelty, template_nudge
         base = (ROOT / "templates" / "game-2d.html").read_text(encoding="utf-8").replace("__ACCENT__", "#35c48f").replace("__TITLE__", "Orb Rush")
         lines = base.splitlines()
-        recolor = base.replace("#35c48f", "#ff8800").replace("Orb Rush", "Bunny Garden")
+        recolor = base.replace("#35c48f", "#ff8800").replace("Orb Rush", "Parcel Run")
         self.assertLess(template_novelty(lines, recolor), 0.1)
         reworked = "\n".join(l if i % 5 > 1 else "// new line %d" % i for i, l in enumerate(lines))
         self.assertGreater(template_novelty(lines, reworked), 0.32)
-        ws = Path(tempfile.mkdtemp(prefix="axion_ws_"))
+        ws = Path(tempfile.mkdtemp(prefix="lumo_ws_"))
         ctx = Ctx({"model": "x/y"}, ws)
         ctx.templates_used["index.html"] = {"name": "game-2d", "lines": lines, "min": 0.32, "customize": ["redraw the entities"]}
         (ws / "index.html").write_text(recolor, encoding="utf-8")

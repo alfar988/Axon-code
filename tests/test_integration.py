@@ -79,7 +79,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             wrote = sum(1 for m in msgs for tc in (m.get("tool_calls") or []) if tc["function"]["name"] in ("write_file", "append_file"))
             planned = any(tc["function"]["name"] == "submit_plan" for m in msgs for tc in (m.get("tool_calls") or []))
             if plan_phase and not planned:
-                plan = {"title": "Bunny Garden", "summary": "2D bunny game", "features": ["jump", "collect carrots"], "steps": ["write html", "write loop", "verify"]}
+                plan = {"title": "Parcel Run", "summary": "2D bunny game", "features": ["jump", "collect carrots"], "steps": ["write html", "write loop", "verify"]}
                 return sse(self, tool_chunks("submit_plan", json.dumps(plan)))
             if plan_phase: return sse(self, text_chunks("Plan ready."))
             if not any(tc["function"]["name"] == "use_skill" for m in msgs for tc in (m.get("tool_calls") or [])):
@@ -103,7 +103,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if plan_phase: return sse(self, text_chunks("Plan ready."))
             used = any(tc["function"]["name"] == "use_template" for m in msgs for tc in (m.get("tool_calls") or []))
             if sc == "tplrecolor" and not used:
-                return sse(self, tool_chunks("use_template", json.dumps({"name": "game-2d", "path": "index.html", "vars": {"TITLE": "Bunny Garden"}})))
+                return sse(self, tool_chunks("use_template", json.dumps({"name": "game-2d", "path": "index.html", "vars": {"TITLE": "Parcel Run"}})))
             return sse(self, text_chunks("Finished."))
         if last.get("role") == "tool": return sse(self, text_chunks("Done."))
         if sc == "poison":
@@ -126,11 +126,11 @@ class FakeOpenRouter(unittest.TestCase):
     def tearDownClass(cls):
         cls.srv.shutdown()
 
-    def run_axion(self, scenario, prompt="write the result file for me"):
+    def run_lumo(self, scenario, prompt="write the result file for me"):
         STATE["scenario"], STATE["stats"] = scenario, {}
         wd = Path(tempfile.mkdtemp(prefix="axit_"))
         (wd / "ws").mkdir()
-        env = dict(os.environ, AXION_API_BASE="http://127.0.0.1:%d/api/v1" % self.port, AXION_HOME=str(wd / "home"),
+        env = dict(os.environ, LUMO_API_BASE="http://127.0.0.1:%d/api/v1" % self.port, LUMO_HOME=str(wd / "home"),
                    OPENROUTER_API_KEY="sk-or-test-1234567890", NO_COLOR="1", PYTHONIOENCODING="utf-8")
         t0 = time.time()
         p = subprocess.run([sys.executable, str(ROOT / "run.py"), str(wd / "ws"), "-m", "m/a:free", "--auto", "-p", prompt],
@@ -139,51 +139,51 @@ class FakeOpenRouter(unittest.TestCase):
         return p.stdout + p.stderr, time.time() - t0, dict(STATE["stats"]), wd / "ws"
 
     def test_unescaped_quotes_are_repaired_and_history_stays_valid(self):
-        out, _t, st, ws = self.run_axion("poison")
+        out, _t, st, ws = self.run_lumo("poison")
         self.assertEqual(st.get("bad400", 0), 0)
         self.assertIn('class="a"', (ws / "bunny.html").read_text(encoding="utf-8"))
 
     def test_garbage_tool_json_never_poisons_the_history(self):
-        out, _t, st, _ws = self.run_axion("garbage")
+        out, _t, st, _ws = self.run_lumo("garbage")
         self.assertEqual(st.get("bad400", 0), 0)
         self.assertNotIn("HTTP 400", out)
 
     def test_rate_limited_models_are_skipped_quickly(self):
-        out, secs, st, ws = self.run_axion("ratelimit")
+        out, secs, st, ws = self.run_lumo("ratelimit")
         self.assertIn("m/d:free", st["models"])
         self.assertLess(secs, 25)
         self.assertTrue((ws / "ok.txt").exists())
 
     def test_403_from_a_model_is_not_blamed_on_the_key(self):
-        out, _t, st, ws = self.run_axion("forbidden")
+        out, _t, st, ws = self.run_lumo("forbidden")
         self.assertNotIn("API key rejected", out)
         self.assertTrue((ws / "ok.txt").exists())
 
     def test_cloudflare_block_without_user_agent_is_fixed(self):
-        out, _t, _st, ws = self.run_axion("cloudflare")
+        out, _t, _st, ws = self.run_lumo("cloudflare")
         self.assertNotIn("API key rejected", out)
         self.assertTrue((ws / "ok.txt").exists())
 
     def test_permanent_403_gives_an_honest_message(self):
-        out, _t, _st, _ws = self.run_axion("cfalways")
+        out, _t, _st, _ws = self.run_lumo("cfalways")
         self.assertNotIn("API key rejected", out)
         self.assertIn("valid", out)
 
     def test_truncated_write_keeps_the_complete_lines(self):
-        out, _t, st, ws = self.run_axion("truncated")
+        out, _t, st, ws = self.run_lumo("truncated")
         text = (ws / "big.js").read_text(encoding="utf-8")
         self.assertIn("line 39 of the game code", text)
         self.assertNotIn("line 41 cut", text)
         self.assertNotIn("responsmu", out)
 
     def test_output_budget_is_negotiated_down(self):
-        out, _t, st, ws = self.run_axion("maxtok")
+        out, _t, st, ws = self.run_lumo("maxtok")
         self.assertTrue((ws / "ok.txt").exists())
         self.assertTrue(any(m and m <= 6000 for m in st["max_tokens"]))
 
     def test_full_build_uses_plan_skills_and_chunked_writes(self):
         for prompt in ("buatkan game 2D kelinci lucu untuk anak di HP", "build a cute 2D bunny game for kids on a phone"):
-            out, _t, st, ws = self.run_axion("fullbuild", prompt)
+            out, _t, st, ws = self.run_lumo("fullbuild", prompt)
             self.assertTrue((ws / "bunny-garden.html").read_text(encoding="utf-8").rstrip().endswith("</html>"), prompt)
             self.assertTrue((ws / "history" / "plan.md").exists())
             last_sys = st["sys"][-1]
@@ -194,13 +194,13 @@ class FakeOpenRouter(unittest.TestCase):
 
     def test_plan_sent_as_one_string_is_not_split_into_letters(self):
         import re
-        out, _t, _st, ws = self.run_axion("stringplan", "build a cute 2D bunny game for kids on a phone")
+        out, _t, _st, ws = self.run_lumo("stringplan", "build a cute 2D bunny game for kids on a phone")
         plan = (ws / "history" / "plan.md").read_text(encoding="utf-8")
         self.assertEqual(len(re.findall(r"(?m)^\d+\. \*\*", plan)), 4)
         self.assertNotRegex(out, r"(?m)^\s*○ \S$")
 
     def test_a_recolored_template_is_sent_back_for_real_customization(self):
-        out, _t, st, ws = self.run_axion("tplrecolor", "build a cute 2D bunny game for kids on a phone")
+        out, _t, st, ws = self.run_lumo("tplrecolor", "build a cute 2D bunny game for kids on a phone")
         self.assertTrue((ws / "index.html").exists())
         self.assertTrue(any("identical to the 'game-2d' template" in (u or "") for u in st["users"]))
         self.assertIn("too close to the template", out)

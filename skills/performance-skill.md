@@ -4,6 +4,18 @@ description: Make slow code fast by measuring first: timeit and cProfile, algori
 ---
 # Performance skill
 
+## Quick rules (read first)
+1. Measure first. Change one thing. Measure again. Keep the change only if the numbers improved.
+2. Fix the algorithm or data structure before the details: a set instead of a list scan, one query instead of one per row.
+3. Do work once: move it out of loops, cache results, read files in one go.
+4. On phones, memory and battery matter: avoid huge arrays, timers that never stop and constant redraws.
+5. Report real numbers with the conditions ("1.8 s down to 0.4 s on 50,000 rows").
+
+## Safety in this skill
+- Never remove validation, authentication, rate limits or error handling just to make something faster.
+- Load-test only your own servers, at a rate you control. Do not write tools that flood a site or a service you do not own.
+- Report honest measurements. Do not claim a speed-up you did not measure.
+
 ## Rule 1: measure, then change one thing
 Guessing finds the wrong bottleneck most of the time. Get a number before and after, on realistic data, and keep the change only if the number improves.
 
@@ -76,3 +88,87 @@ A phone browser tab dies at a few hundred megabytes. Do not keep decoded images 
 
 ## Report
 State the measurement: "report generation 41 s to 3 s on 100k rows: replaced the per-row query with one grouped query". Say what you did not optimize and why.
+
+## Good and bad examples
+
+### 1. Measuring
+Bad: "I think this loop is slow" and a rewrite.
+Good: time it, change one thing, time it again.
+```python
+# check: runs
+import time
+
+def timed(fn, *args, repeat=5):
+    best = float("inf")
+    for _ in range(repeat):
+        t = time.perf_counter()
+        fn(*args)
+        best = min(best, time.perf_counter() - t)
+    return best
+
+assert timed(sum, range(1000)) >= 0
+```
+
+### 2. Repeated work
+Bad: the same Fibonacci value is computed again and again (exponential time).
+Good: remember results.
+```python
+# check: runs
+from functools import lru_cache
+
+calls = 0
+
+@lru_cache(maxsize=None)
+def fib(n):
+    global calls
+    calls += 1
+    return n if n < 2 else fib(n - 1) + fib(n - 2)
+
+assert fib(80) == 23416728348467685
+assert calls == 81                      # every value was computed once
+```
+
+### 3. Building strings
+Bad: `text += piece` in a loop copies the string every time.
+Good:
+```python
+# check: runs
+parts = [str(i) for i in range(1000)]
+assert "".join(parts) == "".join(str(i) for i in range(1000))
+```
+
+### 4. Lookups
+Bad: `if name in names_list` inside a loop over 100,000 names.
+Good: `names = set(names_list)` once, then `if name in names`.
+
+### 5. The browser
+Bad: read and write the DOM alternately in a loop, which forces layout each time.
+Good: read everything first, then write; or build a `DocumentFragment` and insert it once.
+```js
+// check: syntax
+function fill(list, rows) {
+  const frag = document.createDocumentFragment();
+  for (const r of rows) {
+    const li = document.createElement("li");
+    li.textContent = r;
+    frag.appendChild(li);
+  }
+  list.appendChild(frag);
+}
+```
+
+## Common mistakes and fixes
+| Mistake | Fix |
+|---|---|
+| Optimizing code that takes 1% of the time | Profile (`python3 -m cProfile -s cumtime app.py`) and fix the top entry |
+| Cache that never expires | Set a size or a time limit; say what invalidates it |
+| Loading a whole file to read one line | Iterate over the file lazily |
+| Redrawing every frame when nothing changed | Redraw only when state changes |
+| Many small network calls | Batch them, or request only what you need |
+| Timers and listeners left running | Clear them when a screen closes |
+
+## Checklist before you finish
+- [ ] I measured before and after, and the change helped.
+- [ ] The result is still correct: tests pass.
+- [ ] No safety check was removed for speed.
+- [ ] The report gives the numbers and the conditions.
