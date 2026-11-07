@@ -238,6 +238,11 @@ Lumo Code works with several AI providers. Each provider keeps its own key and i
 
 The model list of the active provider is refreshed every 12 hours, in the background, and sorted with the most capable models first. The order combines the model family and generation, the size in its name, the context length, the release date and the price, plus how each model performed for you in earlier sessions. It is an estimate, not a benchmark: `/model <n>` or `/model <id>` always wins.
 
+
+## device support
+
+Lumo Code can be run on Android devices and desktops. It can be 32-bit or 64-bit.
+
 ## Skills chosen by the AI
 
 The model decides which skills to load: the system prompt lists every skill in one line, and the model calls `use_skill` for the guides that fit the task. Pin a skill yourself with `/skill use <name>`. `/skill mode auto` brings back the earlier behavior, where Lumo scores the request and loads skills itself.
